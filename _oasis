@@ -1,0 +1,26 @@
+OASISFormat: 0.4
+Name:        hardcaml-bloop
+Version:     1.1
+Synopsis:    Boolean tools for HardCaml
+Description: Design, simulate, analyse and transform RTL
+  level hardware designs.
+
+Authors:     Andy Ray
+Maintainers: Andy Ray <andy.ray@unjamjar.org>
+Homepage:    https://github.com/ujamjar/hardcaml-bloop
+License:     ISC
+Plugins:     META (0.4)
+BuildTools:  ocamlbuild
+
+Library HardCamlBloop
+  Path:          src
+  Findlibname:   hardcaml-bloop
+  Pack:          true
+  Modules:       Expr, Pcn, Gates, Bdd, Sat
+  BuildDepends:  hardcaml
+  XMETARequires: hardcaml
+
+SourceRepository master
+  Type:     git
+  Location: https://github.com/ujamjar/hardcaml-bloop.git
+  Browser:  https://github.com/ujamjar/hardcaml-bloop

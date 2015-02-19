@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 27f532fb2bf16e99bd97b8ae420a75ba)
+version = "1.1"
+description = "Boolean tools for HardCaml"
+requires = "hardcaml"
+archive(byte) = "HardCamlBloop.cma"
+archive(byte, plugin) = "HardCamlBloop.cma"
+archive(native) = "HardCamlBloop.cmxa"
+archive(native, plugin) = "HardCamlBloop.cmxs"
+exists_if = "HardCamlBloop.cma"
+# OASIS_STOP
+

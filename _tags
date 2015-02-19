@@ -1,0 +1,25 @@
+# OASIS_START
+# DO NOT EDIT (digest: 74272dd7f99635a3131eff4d0bd1f735)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+true: annot, bin_annot
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library HardCamlBloop
+"src/HardCamlBloop.cmxs": use_HardCamlBloop
+"src/expr.cmx": for-pack(HardCamlBloop)
+"src/pcn.cmx": for-pack(HardCamlBloop)
+"src/gates.cmx": for-pack(HardCamlBloop)
+"src/bdd.cmx": for-pack(HardCamlBloop)
+"src/sat.cmx": for-pack(HardCamlBloop)
+<src/*.ml{,i,y}>: pkg_hardcaml
+# OASIS_STOP
