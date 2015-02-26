@@ -175,6 +175,15 @@ end
 module Comb = struct
   include HardCaml.Comb.Make(Base)
   let input name bits = Array.init bits (fun i -> Expr.Var(name, (bits-i-1))) |> Array.to_list
+
+  let forall x f = 
+    let forall_f f = List.fold_right Expr.forall x f in
+    List.map forall_f f
+
+  let exists x f = 
+    let exists_f f = List.fold_right Expr.exists x f in
+    List.map exists_f f
+
 end
 
 module Consistency = struct
@@ -298,26 +307,39 @@ module Consistency = struct
     let s = 
       Sexpr.fold 
         (fun v s ->
-          let v = 
-            if Svar.cardinal v > 1 then
-              (* +0 => remove 0 term *)
-              if Svar.mem Expr.F v then Svar.diff v vf
-              (* +1 => 1 *)
-              else if Svar.mem Expr.T v then vt
-              else v
-            else 
-              v 
-          in
+          (* x+0=x => remove 0 term *)
+          let v = if Svar.cardinal v > 1 && Svar.mem Expr.F v then Svar.diff v vf else v in
+          (* x+1=1 => replace term with 1 *)
+          let v = if Svar.cardinal v > 1 && Svar.mem Expr.T v then vt else v in
           Sexpr.add v s)
         e.exprs
         Sexpr.empty
     in
     (* product terms *)
-    if Sexpr.inter s et <> Sexpr.empty then `Sat
-    else if Sexpr.inter s ef <> Sexpr.empty then `Unsat
-    else `Expr { e with exprs = s }
+    let s = Sexpr.diff s et in (* remove any single 1 terms *)
+    if Sexpr.inter s ef <> Sexpr.empty then `unsat (* any 0 terms => overall 0 *)
+    else `expr { e with exprs = s }
 
   let of_signal o = List.map of_expr o 
+
+  let to_string p = 
+    let p = 
+      Sexpr.fold (fun s l ->
+        let s = 
+          Svar.fold (fun v l ->
+            match v with
+            | Expr.T -> "1" :: l
+            | Expr.F -> "0" :: l
+            | Expr.Var(n,i) -> (n ^ string_of_int i) :: l
+            | Expr.Not(Expr.Var(n,i)) -> (n ^ string_of_int i ^ "'") :: l
+            | _ -> failwith "Consistency.to_string")
+          s []
+        in
+        (String.concat "+" s) :: l)
+        p.exprs []
+    in
+    let p = List.map (fun p -> "(" ^ p ^ ")\n") p in
+    String.concat "" p
 
 end
 

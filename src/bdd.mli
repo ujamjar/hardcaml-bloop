@@ -1,4 +1,4 @@
 (* interface to ocaml-bdd library *)
 
-val init : unit -> unit
+val of_expr : Expr.t -> Bdd.t
 

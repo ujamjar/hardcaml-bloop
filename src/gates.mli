@@ -4,8 +4,11 @@ val (^.) : Expr.t -> Expr.t -> Expr.t
 val (~.) : Expr.t -> Expr.t 
 
 (** combinatorial API implemented over Expr.t *)
-module Comb : HardCaml.Comb.S
-  with type t = Expr.t list
+module Comb : sig 
+  include HardCaml.Comb.S with type t = Expr.t list
+  val forall : t -> t -> t
+  val exists : t -> t -> t
+end
 
 (** Convert boolean expressionn to product-of-sums form using
     consistency functions.  Such expressions have the same
@@ -41,7 +44,9 @@ module Consistency : sig
   val of_expr : Expr.t -> t 
   val of_signal : Comb.t -> t list 
 
-  val remove_constants : t -> [`Sat | `Unsat | `Expr of t]
+  val to_string : t -> string
+
+  val remove_constants : t -> [ `unsat | `expr of t]
 
 end
 

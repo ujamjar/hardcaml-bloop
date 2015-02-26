@@ -20,6 +20,22 @@ Library HardCamlBloop
   BuildDepends:  hardcaml, minisat
   XMETARequires: hardcaml, minisat
 
+Executable sat_const
+  Path:               test
+  MainIs:             sat_const.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       hardcaml-bloop
+
+Executable sat_repair
+  Path:               test
+  MainIs:             sat_repair.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       hardcaml-bloop
+
 SourceRepository master
   Type:     git
   Location: https://github.com/ujamjar/hardcaml-bloop.git
