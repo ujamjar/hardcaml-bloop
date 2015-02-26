@@ -44,6 +44,14 @@ Executable bdd_dynw
   Install:            false
   BuildDepends:       hardcaml-bloop
 
+Executable bdd_adder
+  Path:               test
+  MainIs:             bdd_adder.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       hardcaml-bloop
+
 SourceRepository master
   Type:     git
   Location: https://github.com/ujamjar/hardcaml-bloop.git

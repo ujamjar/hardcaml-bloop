@@ -5,6 +5,8 @@ module M = Map.Make(struct type t = Expr.t let compare = compare end)
 
 open Expr
 
+type var_map = int M.t
+
 (* search for input variables, return as a set *)
 let rec find_vars = function
   | T -> S.empty
@@ -12,6 +14,19 @@ let rec find_vars = function
   | Var _ as x -> S.singleton x
   | Not(a) -> find_vars a
   | And(a,b) | Or(a,b) | Xor(a,b) -> S.union (find_vars a) (find_vars b)
+
+(* map of variables to indices - no specific ordering *)
+let var_map var_set = 
+  fst @@ S.fold (fun v (m,i) -> M.add v (Bdd.mk_var i) m, i+1) var_set (M.empty,1) 
+
+let var_map' var_set = 
+  fst @@ S.fold (fun v (m,i) -> M.add v i m, i+1) var_set (M.empty,1) 
+
+let var_set = List.fold_left (fun set o -> S.union set (find_vars o))
+
+let vars_of_expr e = var_map' (find_vars e)
+let vars_of_signal s = var_map' (var_set S.empty s)
+let vars_of_signals s = var_map' (List.fold_left var_set S.empty s)
 
 (* recursively construct the bdd *)
 let rec build vars = function
@@ -23,35 +38,22 @@ let rec build vars = function
   | And(a,b) -> Bdd.mk_and (build vars a) (build vars b)
   | Xor(a,b) -> build vars Gates.(((~. a) &. b) |. (a &. (~. b)))
 
-(* map of variables to indices - no specific ordering *)
-let var_map var_set = 
-  fst @@ S.fold (fun v (m,i) -> M.add v (Bdd.mk_var i) m, i+1) var_set (M.empty,1) 
-
 (* create bdd from Expr.t *)
-let of_expr e = 
-  (* find and create variables *)
-  let vars = find_vars e in
-  let () = Bdd.set_max_var (S.cardinal vars) in
-  let vars = var_map vars in
-  (* build bdd *)
+let of_expr vars e = 
+  let () = Bdd.set_max_var (M.cardinal vars) in
+  let vars = M.fold (fun k v m -> M.add k (Bdd.mk_var v) m) vars M.empty in
   build vars e
 
-let var_set = List.fold_left (fun set o -> S.union set (find_vars o))
-
 (* create bdd from Gates.Comb.t *)
-let of_signal s = 
-  let vars = var_set S.empty s in
-  let () = Bdd.set_max_var (S.cardinal vars) in
-  let vars = var_map vars in
-  (* build bdd *)
+let of_signal vars s = 
+  let () = Bdd.set_max_var (M.cardinal vars) in
+  let vars = M.fold (fun k v m -> M.add k (Bdd.mk_var v) m) vars M.empty in
   List.map (build vars) s
 
 (* create bdd from list of circuit outputs *)
-let of_signals s = 
-  let vars = List.fold_left var_set S.empty s  in
-  let () = Bdd.set_max_var (S.cardinal vars) in
-  let vars = var_map vars in
-  (* build bdd *)
+let of_signals vars s = 
+  let () = Bdd.set_max_var (M.cardinal vars) in
+  let vars = M.fold (fun k v m -> M.add k (Bdd.mk_var v) m) vars M.empty in
   List.map (List.map (build vars)) s
 
 (**********************************************************)
@@ -186,5 +188,5 @@ let dynamic_weight_assignment signals =
       let ordered_vars = M.add var idx ordered_vars in
       iter (idx+1) ordered_vars mask_set
   in
-  M.bindings @@ iter 1 M.empty S.empty
+  iter 1 M.empty S.empty
 

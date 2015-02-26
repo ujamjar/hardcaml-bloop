@@ -1,10 +1,21 @@
 (* interface to ocaml-bdd library *)
 
-val of_expr : Expr.t -> Bdd.t
+module S : Set.S with type elt = Expr.t 
+module M : Map.S with type key = Expr.t
 
-val of_signal : Gates.Comb.t -> Bdd.t list
+type var_map = int M.t
 
-val of_signals : Gates.Comb.t list -> Bdd.t list list
+val vars_of_expr : Expr.t -> var_map
+
+val vars_of_signal : Gates.Comb.t -> var_map
+
+val vars_of_signals : Gates.Comb.t list -> var_map
+
+val of_expr : var_map -> Expr.t -> Bdd.t
+
+val of_signal : var_map -> Gates.Comb.t -> Bdd.t list
+
+val of_signals : var_map -> Gates.Comb.t list -> Bdd.t list list
 
 (* dynamic weight assignment.
   
@@ -21,8 +32,6 @@ val of_signals : Gates.Comb.t list -> Bdd.t list list
 
  *)
 
-module S : Set.S with type elt = Expr.t 
-module M : Map.S with type key = Expr.t
 module V : Set.S with type elt = Expr.t * float
 
 type mask_set = S.t
@@ -35,5 +44,5 @@ val max_input_weight : V.t ->  Expr.t
 val erase_input : mask_set -> Expr.t -> Expr.t -> bool * mask_set
 val erase_input_from_all : mask_set -> Expr.t -> Gates.Comb.t list -> mask_set
 
-val dynamic_weight_assignment : Gates.Comb.t list -> (Expr.t * int) list
+val dynamic_weight_assignment : Gates.Comb.t list -> var_map
 

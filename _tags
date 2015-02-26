@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: d268ca8327a5010b8615254bb399f764)
+# DO NOT EDIT (digest: c43820bdc4df8ec5f2169d458bd262f2)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -41,9 +41,15 @@ true: annot, bin_annot
 <test/bdd_dynw.{native,byte}>: pkg_hardcaml
 <test/bdd_dynw.{native,byte}>: pkg_minisat
 <test/bdd_dynw.{native,byte}>: use_HardCamlBloop
+<test/bdd_dynw.{native,byte}>: custom
+# Executable bdd_adder
+<test/bdd_adder.{native,byte}>: pkg_bdd
+<test/bdd_adder.{native,byte}>: pkg_hardcaml
+<test/bdd_adder.{native,byte}>: pkg_minisat
+<test/bdd_adder.{native,byte}>: use_HardCamlBloop
 <test/*.ml{,i,y}>: pkg_bdd
 <test/*.ml{,i,y}>: pkg_hardcaml
 <test/*.ml{,i,y}>: pkg_minisat
 <test/*.ml{,i,y}>: use_HardCamlBloop
-<test/bdd_dynw.{native,byte}>: custom
+<test/bdd_adder.{native,byte}>: custom
 # OASIS_STOP
