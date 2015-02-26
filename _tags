@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 72b86650d4e95f375b00e86752aa4d61)
+# DO NOT EDIT (digest: d268ca8327a5010b8615254bb399f764)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -19,21 +19,31 @@ true: annot, bin_annot
 "src/expr.cmx": for-pack(HardCamlBloop)
 "src/pcn.cmx": for-pack(HardCamlBloop)
 "src/gates.cmx": for-pack(HardCamlBloop)
-"src/bdd.cmx": for-pack(HardCamlBloop)
+"src/bddx.cmx": for-pack(HardCamlBloop)
 "src/sat.cmx": for-pack(HardCamlBloop)
+<src/*.ml{,i,y}>: pkg_bdd
 <src/*.ml{,i,y}>: pkg_hardcaml
 <src/*.ml{,i,y}>: pkg_minisat
 # Executable sat_const
+<test/sat_const.{native,byte}>: pkg_bdd
 <test/sat_const.{native,byte}>: pkg_hardcaml
 <test/sat_const.{native,byte}>: pkg_minisat
 <test/sat_const.{native,byte}>: use_HardCamlBloop
 <test/sat_const.{native,byte}>: custom
 # Executable sat_repair
+<test/sat_repair.{native,byte}>: pkg_bdd
 <test/sat_repair.{native,byte}>: pkg_hardcaml
 <test/sat_repair.{native,byte}>: pkg_minisat
 <test/sat_repair.{native,byte}>: use_HardCamlBloop
+<test/sat_repair.{native,byte}>: custom
+# Executable bdd_dynw
+<test/bdd_dynw.{native,byte}>: pkg_bdd
+<test/bdd_dynw.{native,byte}>: pkg_hardcaml
+<test/bdd_dynw.{native,byte}>: pkg_minisat
+<test/bdd_dynw.{native,byte}>: use_HardCamlBloop
+<test/*.ml{,i,y}>: pkg_bdd
 <test/*.ml{,i,y}>: pkg_hardcaml
 <test/*.ml{,i,y}>: pkg_minisat
 <test/*.ml{,i,y}>: use_HardCamlBloop
-<test/sat_repair.{native,byte}>: custom
+<test/bdd_dynw.{native,byte}>: custom
 # OASIS_STOP

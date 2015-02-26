@@ -16,9 +16,9 @@ Library HardCamlBloop
   Path:          src
   Findlibname:   hardcaml-bloop
   Pack:          true
-  Modules:       Expr, Pcn, Gates, Bdd, Sat
-  BuildDepends:  hardcaml, minisat
-  XMETARequires: hardcaml, minisat
+  Modules:       Expr, Pcn, Gates, Bddx, Sat
+  BuildDepends:  hardcaml, minisat, bdd
+  XMETARequires: hardcaml, minisat, bdd
 
 Executable sat_const
   Path:               test
@@ -31,6 +31,14 @@ Executable sat_const
 Executable sat_repair
   Path:               test
   MainIs:             sat_repair.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       hardcaml-bloop
+
+Executable bdd_dynw
+  Path:               test
+  MainIs:             bdd_dynw.ml
   Custom:             true
   CompiledObject:     best
   Install:            false
