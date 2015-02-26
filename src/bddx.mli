@@ -8,10 +8,11 @@ val of_signals : Gates.Comb.t list -> Bdd.t list list
 
 (* dynamic weight assignment.
   
-  Given a circuit structure this calculates a variable order.
+  Given a circuit structure this calculates a variable order hopefully
+  suitable for a BDD.
 
   It tries to put variables which are furthest from the outputs and that
-  also affect the most interface nodes first.
+  also affect the most internal nodes first.
 
   Implementation note; we maintain a so called 'mask_set' which is 
   a set of nodes that are not longer reachable.  This avoids trying to
@@ -21,6 +22,7 @@ val of_signals : Gates.Comb.t list -> Bdd.t list list
  *)
 
 module S : Set.S with type elt = Expr.t 
+module M : Map.S with type key = Expr.t
 module V : Set.S with type elt = Expr.t * float
 
 type mask_set = S.t
