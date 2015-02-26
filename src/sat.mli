@@ -1,3 +1,6 @@
 (* interface to minisat *)
 
-val init : unit -> unit
+val run : Gates.Consistency.t -> 
+  [ `sat of (Expr.t * [ `t | `f | `u ]) list
+  | `unsat ]
+

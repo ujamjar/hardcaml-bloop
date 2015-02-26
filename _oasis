@@ -17,8 +17,8 @@ Library HardCamlBloop
   Findlibname:   hardcaml-bloop
   Pack:          true
   Modules:       Expr, Pcn, Gates, Bdd, Sat
-  BuildDepends:  hardcaml
-  XMETARequires: hardcaml
+  BuildDepends:  hardcaml, minisat
+  XMETARequires: hardcaml, minisat
 
 SourceRepository master
   Type:     git

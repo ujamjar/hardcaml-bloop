@@ -132,7 +132,9 @@ let rec eval xs f =
   | [] -> f 
   | (x,v)::t -> eval t (cofactor x v f)
 
-let tabulate f = 
+type truth_table = (string * int) array * int array
+
+let truth_table f = 
   let module S = Set.Make(struct
     type t = string * int
     let compare = compare
@@ -156,4 +158,28 @@ let tabulate f =
   Array.of_list vars, Array.init (1 lsl n_vars) 
     (fun i -> eval (fun s -> let j = List.assoc s varsi in (i lsr j) land 1) f)
 
+let html_of_truth_table (headings, data) =
+  let h, d = Array.to_list headings, Array.to_list data in
+  let n_vars = List.length h in
+  let headings = 
+      let hd (x,i) = "<th>" ^ (x^string_of_int i) ^ "</th>" in
+      let hd = String.concat "" ("result" :: (List.map hd h)) in
+      String.concat "" ["<tr>"; hd; "</tr>"]
+  in
+  let data = List.mapi 
+      (fun i res ->
+          let dt x = "<td><center>" ^ string_of_int x ^ "</center></td>" in
+          let dv = Array.init n_vars (fun j -> dt ((i lsr j) land 1)) |> Array.to_list in
+          let d = String.concat "" ([ dt res ] @ dv) in
+          String.concat "" ["<tr>"; d; "</tr>"]
+      ) d
+  in
+  (* heading row *)
+  "<table>" ^ String.concat "" (headings :: data) ^ "</table>"
+
+let html_of_truth_tables x = 
+  ("<table><tr>" ^ 
+    (String.concat "" 
+      (List.map (fun x -> "<td><table>"^(html_of_truth_table x) ^ "</td></table>") x)) ^ 
+  "</tr><table>")
 

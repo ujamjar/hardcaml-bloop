@@ -1,5 +1,7 @@
 open HardCaml
 
+(* basic bit operators.  They optimise based on their arguments *)
+
 let (&.) a b = 
   let open Expr in
   match a, b with
@@ -32,7 +34,7 @@ let (~.) a =
   | Not(a) -> a 
   | _ -> Not a
 
-let (^.) a b = (~. a &. b) |. (a &. ~. b)
+let (^.) a b = ((~. a) &. b) |. (a &. (~. b))
 
 module Base = struct
   
@@ -112,50 +114,50 @@ module Base = struct
         let e = repeat e (width v) in
         e &: v) |> Array.to_list |> reduce (|:) 
 
-    let (+:) a b = 
-      let fa x y z = (x &. y) |. (x &. z) |. (y &. z), x ^. y ^. z in
-      (fst (List.fold_left2 (fun (res,carry) a b -> 
-        let carry, sum = fa a b carry in 
-        sum::res, carry) ([],Expr.F) (rev a) (rev b)))
+  let (+:) a b = 
+    let fa x y z = (x &. y) |. (x &. z) |. (y &. z), x ^. y ^. z in
+    (fst (List.fold_left2 (fun (res,carry) a b -> 
+      let carry, sum = fa a b carry in 
+      sum::res, carry) ([],Expr.F) (rev a) (rev b)))
 
-    let (-:) a b = 
-      let fs x y z = ((~. x) &. (y |. z)) |. (x &. y &. z), (x ^. y) ^. z in
-      (fst (List.fold_left2 (fun (res,carry) a b -> 
-        let carry, sum = fs a b carry in 
-        sum::res, carry) ([],Expr.F) (rev a) (rev b)))
-    
-    let zero = repeat gnd 
-    let msb x = select x (width x - 1) (width x - 1)
-    let bits = List.map (fun x -> [x])
+  let (-:) a b = 
+    let fs x y z = ((~. x) &. (y |. z)) |. (x &. y &. z), (x ^. y) ^. z in
+    (fst (List.fold_left2 (fun (res,carry) a b -> 
+      let carry, sum = fs a b carry in 
+      sum::res, carry) ([],Expr.F) (rev a) (rev b)))
+  
+  let zero = repeat gnd 
+  let msb x = select x (width x - 1) (width x - 1)
+  let bits = List.map (fun x -> [x])
 
-    let ( *: ) a b = 
-      let _,r = List.fold_left (fun (i,acc) b -> 
-        let acc = concat [gnd; acc] in
-        let a = concat [ gnd ; a ; repeat gnd i ] in
-        i+1, (+:) acc ((&:) a (repeat b (width a)))
-      ) (0,(zero (width a))) (rev (bits b)) in
-      r
+  let ( *: ) a b = 
+    let _,r = List.fold_left (fun (i,acc) b -> 
+      let acc = concat [gnd; acc] in
+      let a = concat [ gnd ; a ; repeat gnd i ] in
+      i+1, (+:) acc ((&:) a (repeat b (width a)))
+    ) (0,(zero (width a))) (rev (bits b)) in
+    r
+  
+  let ( *+ ) a b = 
+    let last = (width b) - 1 in
+    let _,r = List.fold_left (fun (i,acc) b -> 
+      let acc = concat [msb acc; acc] in
+      let a = concat [ msb a; a ; repeat gnd i ] in
+      i+1, (if i = last then (-:) else (+:)) acc ((&:) a (repeat b (width a)))
+    ) (0,(zero (width a))) (rev (bits b)) in
+    r
     
-    let ( *+ ) a b = 
-      let last = (width b) - 1 in
-      let _,r = List.fold_left (fun (i,acc) b -> 
-        let acc = concat [msb acc; acc] in
-        let a = concat [ msb a; a ; repeat gnd i ] in
-        i+1, (if i = last then (-:) else (+:)) acc ((&:) a (repeat b (width a)))
-      ) (0,(zero (width a))) (rev (bits b)) in
-      r
-    
-    let mux2 c a b = (c &. a) |. ((~. c) &. b)
+  let mux2 c a b = (c &. a) |. ((~. c) &. b)
 
-    let (<:) a b =
-      let rec less a b = 
-        match a,b with
-        | [],[] -> Expr.F
-        | a::t0,b::t1 -> 
-          mux2 (~. a &. b) Expr.T (mux2 (a &. ~. b) Expr.F (less t0 t1))
-        | _ -> failwith "args not same width"
-      in
-      [less a b]
+  let (<:) a b =
+    let rec less a b = 
+      match a,b with
+      | [],[] -> Expr.F
+      | a::t0,b::t1 -> 
+        mux2 (~. a &. b) Expr.T (mux2 (a &. ~. b) Expr.F (less t0 t1))
+      | _ -> failwith "args not same width"
+    in
+    [less a b]
 
   let to_string s = 
     String.concat ""
@@ -171,9 +173,151 @@ module Base = struct
 end
 
 module Comb = struct
-  module G' = HardCaml.Comb.Make(Base)
-  include G'
+  include HardCaml.Comb.Make(Base)
   let input name bits = Array.init bits (fun i -> Expr.Var(name, (bits-i-1))) |> Array.to_list
 end
 
+module Consistency = struct
+
+  module Svar = Set.Make(struct type t = Expr.t let compare = compare end)
+  module Sexpr = Set.Make(struct type t = Svar.t let compare = compare end)
+
+  type t = 
+    {
+      input_vars : Svar.t;
+      temp_vars : Svar.t;
+      exprs : Sexpr.t;
+      out_var : Expr.t;
+    }
+
+  let empty = 
+    { input_vars = Svar.empty; temp_vars = Svar.empty; 
+      exprs = Sexpr.empty; out_var = Expr.F }
+
+  type temp_var = unit -> Expr.t
+
+  let temp_var = 
+    let c = ref 0 in
+    (fun () -> 
+      let s = Expr.var ~i:!c "_c" in
+      incr c;
+      s)
+
+  let bfalse z = [ [z]; [~. z] ] (* z & z' = 0 *)
+
+  let btrue z = [ [z; ~. z] ] (* z | z' = 1 *)
+
+  let bwire z x = [ [~. x; z]; [x; ~. z] ]
+
+  let bnot z x = [ [x; z]; [~. x; ~. z] ]
+
+  let bnor z x = 
+    let sum = List.fold_right (fun x a -> x :: a) x [z] in
+    List.fold_right (fun x a -> [~. x; ~. z] :: a) x [sum]
+
+  let bor z x = 
+    let sum = List.fold_right (fun x a -> x :: a) x [~. z] in
+    List.fold_right (fun x a -> [~. x; z] :: a) x [sum]
+
+  let bnand z x = 
+    let sum = List.fold_right (fun x a -> ~. x :: a) x [~. z] in
+    List.fold_right (fun x a -> [x; z] :: a) x [sum]
+
+  let band z x =  
+    let sum = List.fold_right (fun x a -> ~. x :: a) x [z] in
+    List.fold_right (fun x a -> [x; ~. z] :: a) x [sum]
+
+  let bxor z a b = 
+    [ [~. z; ~. a; ~. b]; [~. z; a; b]; [z; ~. a; b]; [z; a; ~. b] ]
+
+  let to_gates l = Comb.(reduce (&.) (List.map (reduce (|.)) l))
+
+  let to_sexpr = 
+    List.fold_left 
+      (fun s x -> 
+        Sexpr.add (List.fold_right Svar.add x Svar.empty) s) Sexpr.empty
+
+  let rec of_expr e = 
+    (*let btrue = to_sexpr @@ btrue in
+    let bfalse = to_sexpr @@ bfalse in*)
+    let bnot z a = to_sexpr @@ bnot z a in
+    let band z a b = to_sexpr @@ band z [a;b] in
+    let bor z a b = to_sexpr @@ bor z [a;b] in
+    let bnand z a b = to_sexpr @@ bnand z [a;b] in
+    let bnor z a b = to_sexpr @@ bnor z [a;b] in
+    let bxor z a b = to_sexpr @@ bxor z a b in
+
+    let op1 f e0 = 
+      let t = temp_var () in
+      let t0 = of_expr e0 in
+      let f = f t t0.out_var in
+      let (@:),(@.) = Svar.union, Sexpr.union in
+      {
+        input_vars = t0.input_vars;
+        temp_vars = Svar.singleton t @: t0.temp_vars;
+        exprs = f @. t0.exprs; 
+        out_var = t;
+      }
+    in
+    let op2 f e0 e1 = 
+      let t = temp_var () in
+      let t0, t1 = of_expr e0, of_expr e1 in
+      let f = f t t0.out_var t1.out_var in
+      let (@:),(@.) = Svar.union, Sexpr.union in
+      {
+        input_vars = t0.input_vars @: t1.input_vars;
+        temp_vars = Svar.singleton t @: t0.temp_vars @: t1.temp_vars;
+        exprs = f @. t0.exprs @. t1.exprs; 
+        out_var = t;
+      }
+    in
+    let var v = { empty with out_var = v } in (* hmmm...which way round? *)
+    (*let var v = { empty with exprs = Sexpr.singleton (Svar.singleton v); out_var = v } in*)
+
+    match e with 
+
+    | Expr.T -> var Expr.T
+    | Expr.F -> var Expr.F
+
+    | Expr.Var _ -> { (var e) with input_vars = Svar.singleton e }
+    (*| Expr.Not(Expr.Var _) -> { (var e) with input_vars = Svar.singleton e }*)
+
+    | Expr.Not(Expr.And(e0, e1)) -> op2 bnand e0 e1
+    | Expr.Not(Expr.Or(e0, e1)) -> op2 bnor e0 e1
+    | Expr.And(e0, e1) -> op2 band e0 e1
+    | Expr.Or(e0, e1) -> op2 bor e0 e1
+    | Expr.Xor(e0,e1) -> op2 bxor e0 e1
+    | Expr.Not(e) -> op1 bnot e 
+
+  let remove_constants e = 
+    let vt = Svar.singleton Expr.T in
+    let vf = Svar.singleton Expr.F in
+    let et = Sexpr.singleton vt in
+    let ef = Sexpr.singleton vf in
+    (* sum terms *)
+    let s = 
+      Sexpr.fold 
+        (fun v s ->
+          let v = 
+            if Svar.cardinal v > 1 then
+              (* +0 => remove 0 term *)
+              if Svar.mem Expr.F v then Svar.diff v vf
+              (* +1 => 1 *)
+              else if Svar.mem Expr.T v then vt
+              else v
+            else 
+              v 
+          in
+          Sexpr.add v s)
+        e.exprs
+        Sexpr.empty
+    in
+    (* product terms *)
+    if Sexpr.inter s et <> Sexpr.empty then `Sat
+    else if Sexpr.inter s ef <> Sexpr.empty then `Unsat
+    else `Expr { e with exprs = s }
+
+  let of_signal o = List.map of_expr o 
+
+end
 

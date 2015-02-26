@@ -50,5 +50,11 @@ val shannon_expansion : t -> t -> t
 (** evaluate at each given var by taking given cofactor *)
 val eval : (t * t) list -> t -> t
 
-val tabulate : t -> (string * int) array * int array
+type truth_table = (string * int) array * int array
+
+val truth_table : t -> truth_table
+
+val html_of_truth_table : truth_table -> string
+
+val html_of_truth_tables : truth_table list -> string
 
