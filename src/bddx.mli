@@ -4,6 +4,7 @@ module S : Set.S with type elt = Expr.t
 module M : Map.S with type key = Expr.t
 
 type var_map = int M.t
+type t = Bdd.t
 
 val vars_of_expr : Expr.t -> var_map
 
@@ -11,11 +12,27 @@ val vars_of_signal : Gates.Comb.t -> var_map
 
 val vars_of_signals : Gates.Comb.t list -> var_map
 
-val of_expr : var_map -> Expr.t -> Bdd.t
+val of_expr : var_map -> Expr.t -> t
 
-val of_signal : var_map -> Gates.Comb.t -> Bdd.t list
+val of_signal : var_map -> Gates.Comb.t -> t list
 
-val of_signals : var_map -> Gates.Comb.t list -> Bdd.t list list
+val of_signals : var_map -> Gates.Comb.t list -> t list list
+
+val is_sat : t -> bool
+
+val tautology : t -> bool
+
+val num_solutions : t -> Int64.t
+
+type soln = (int * bool) list
+
+val get_solution : t -> soln
+
+val all_solutions : t -> soln list
+
+val vars_of_solution : var_map -> soln -> Expr.t list
+
+val term_of_solution : var_map -> soln -> Expr.t 
 
 (* dynamic weight assignment.
   

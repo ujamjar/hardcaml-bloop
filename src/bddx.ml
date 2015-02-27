@@ -6,6 +6,7 @@ module M = Map.Make(struct type t = Expr.t let compare = compare end)
 open Expr
 
 type var_map = int M.t
+type t = Bdd.t
 
 (* search for input variables, return as a set *)
 let rec find_vars = function
@@ -55,6 +56,23 @@ let of_signals vars s =
   let () = Bdd.set_max_var (M.cardinal vars) in
   let vars = M.fold (fun k v m -> M.add k (Bdd.mk_var v) m) vars M.empty in
   List.map (List.map (build vars)) s
+
+type soln = (int * bool) list
+
+let is_sat = Bdd.is_sat
+let tautology = Bdd.tautology
+let num_solutions = Bdd.count_sat
+let get_solution = Bdd.any_sat
+let all_solutions = Bdd.all_sat
+
+let vars_of_solution var_map soln = 
+  let module I = Map.Make(struct type t = int let compare = compare end) in
+  let map = M.fold (fun k v m -> I.add v k m) var_map I.empty in
+  List.map (fun (v,b) -> if not b then Expr.Not(I.find v map) else I.find v map) soln
+
+let term_of_solution var_map soln = 
+  let vars = vars_of_solution var_map soln in
+  List.fold_left (&:) (List.hd vars) (List.tl vars)
 
 (**********************************************************)
 

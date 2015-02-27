@@ -52,6 +52,14 @@ Executable bdd_adder
   Install:            false
   BuildDepends:       hardcaml-bloop
 
+Executable bdd_repair
+  Path:               test
+  MainIs:             bdd_repair.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       hardcaml-bloop
+
 SourceRepository master
   Type:     git
   Location: https://github.com/ujamjar/hardcaml-bloop.git
