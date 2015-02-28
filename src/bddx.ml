@@ -18,16 +18,13 @@ let rec find_vars = function
 
 (* map of variables to indices - no specific ordering *)
 let var_map var_set = 
-  fst @@ S.fold (fun v (m,i) -> M.add v (Bdd.mk_var i) m, i+1) var_set (M.empty,1) 
-
-let var_map' var_set = 
   fst @@ S.fold (fun v (m,i) -> M.add v i m, i+1) var_set (M.empty,1) 
 
 let var_set = List.fold_left (fun set o -> S.union set (find_vars o))
 
-let vars_of_expr e = var_map' (find_vars e)
-let vars_of_signal s = var_map' (var_set S.empty s)
-let vars_of_signals s = var_map' (List.fold_left var_set S.empty s)
+let vars_of_expr e = var_map (find_vars e)
+let vars_of_signal s = var_map (var_set S.empty s)
+let vars_of_signals s = var_map (List.fold_left var_set S.empty s)
 
 (* recursively construct the bdd *)
 let rec build vars = function

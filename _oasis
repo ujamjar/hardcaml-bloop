@@ -20,6 +20,22 @@ Library HardCamlBloop
   BuildDepends:  hardcaml, minisat, bdd
   XMETARequires: hardcaml, minisat, bdd
 
+Executable pcn_taut
+  Path:               test
+  MainIs:             pcn_taut.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       hardcaml-bloop
+
+Executable pcn_compl
+  Path:               test
+  MainIs:             pcn_compl.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       hardcaml-bloop
+
 Executable sat_const
   Path:               test
   MainIs:             sat_const.ml

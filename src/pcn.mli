@@ -7,10 +7,14 @@ type v =
 
 (** operations on a single cube *)
 module Cube : sig
-  type t = v array
+  type t = private v array 
+  
+  val init : int -> (int -> v) -> t
   val fold : ('a -> v -> 'a) -> 'a -> t -> 'a
   val map : (v -> v) -> t -> t
   val num_vars : t -> int
+  val get : t -> int -> v
+  val to_list : t -> v list
 
   val is_dontcare : t -> bool
   val count_dontcare : t -> int
@@ -30,12 +34,18 @@ end
 
 (** operations on cube lists *)
 module Cubelist : sig
-  type t = Cube.t array
+  type t = private Cube.t array 
+
   val num_cubes : t -> int
   val num_vars : t -> int
   val fold : ('a -> Cube.t -> 'a) -> 'a -> t -> 'a
   val map : (Cube.t -> Cube.t) -> t -> t
-  
+  val get : t -> int -> Cube.t
+  val concat : t list -> t
+
+  val of_list : Cube.t list -> t
+  val of_cube : Cube.t -> t
+
   val fold_var : int -> ('a -> v -> 'a) -> 'a -> t -> 'a
   val map_vars : (int -> 'a) -> t -> 'a array
   val map_fold_vars : ('a -> v -> 'a) -> 'a -> t -> 'a array
@@ -95,4 +105,5 @@ module Calculator : sig
     Cubelist.t 
 end
 
+val build : Expr.t -> Cubelist.t
 

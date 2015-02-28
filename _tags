@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 2e5a6d2a4c8c17af3f064f63fe1d04fd)
+# DO NOT EDIT (digest: eca83daf811572264d15f20450f53ce9)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -24,6 +24,18 @@ true: annot, bin_annot
 <src/*.ml{,i,y}>: pkg_bdd
 <src/*.ml{,i,y}>: pkg_hardcaml
 <src/*.ml{,i,y}>: pkg_minisat
+# Executable pcn_taut
+<test/pcn_taut.{native,byte}>: pkg_bdd
+<test/pcn_taut.{native,byte}>: pkg_hardcaml
+<test/pcn_taut.{native,byte}>: pkg_minisat
+<test/pcn_taut.{native,byte}>: use_HardCamlBloop
+<test/pcn_taut.{native,byte}>: custom
+# Executable pcn_compl
+<test/pcn_compl.{native,byte}>: pkg_bdd
+<test/pcn_compl.{native,byte}>: pkg_hardcaml
+<test/pcn_compl.{native,byte}>: pkg_minisat
+<test/pcn_compl.{native,byte}>: use_HardCamlBloop
+<test/pcn_compl.{native,byte}>: custom
 # Executable sat_const
 <test/sat_const.{native,byte}>: pkg_bdd
 <test/sat_const.{native,byte}>: pkg_hardcaml

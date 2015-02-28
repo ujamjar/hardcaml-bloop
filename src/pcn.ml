@@ -14,10 +14,12 @@ module Cube = struct
 
   type t = v array
 
+  let init = Array.init
   let fold = Array.fold_left 
   let map = Array.map 
   let num_vars = Array.length 
-  let init = Array.init
+  let get = Array.get
+  let to_list = Array.to_list
 
   let is_dontcare c = fold (fun a v -> a && (v = X)) true c
 
@@ -66,7 +68,15 @@ module Cubelist = struct
 
   let map = Array.map
 
-  let fold_var i f = fold (fun a c -> f a c.(i))
+  let get = Array.get
+
+  let concat = Array.concat
+
+  let of_list = Array.of_list
+
+  let of_cube c = [| c |]
+
+  let fold_var i f = fold (fun a c -> f a (Cube.get c i))
 
   let map_vars f cl = 
     Array.init (num_vars cl) (fun i -> f i)
@@ -179,34 +189,34 @@ end
 
 module Complement = struct
 
-  let simple_complement c = 
+  let simple_complement c =
     let num_vars = Cube.num_vars c in
-    Array.to_list c 
+    Cube.to_list c 
     |> List.mapi 
       (fun i -> function
         | F -> Some(Cube.single_var_true num_vars i)
         | T -> Some(Cube.single_var_compl num_vars i)
         | X -> None) 
     |> filter_none
-    |> Array.of_list
+    |> Cubelist.of_list
 
   let complement f = 
     let num_vars = Cubelist.num_vars f in
 
     (* basic boolean operations *)
-    let or_ a b = Array.concat [a;b] in
+    let or_ a b = Cubelist.concat [a;b] in
     let and_ i f = 
-      Array.map (fun c -> Cube.init num_vars (fun j -> if i=j then T else c.(j))) f
+      Cubelist.map (fun c -> Cube.init num_vars (fun j -> if i=j then T else Cube.get c j)) f
     in
     let nand_ i f = 
-      Array.map (fun c -> Cube.init num_vars (fun j -> if i=j then F else c.(j))) f
+      Cubelist.map (fun c -> Cube.init num_vars (fun j -> if i=j then F else Cube.get c j)) f
     in
 
     (* URP *)
     let rec complement f = 
       if Cubelist.num_cubes f = 0 then Cubelist.one num_vars
       else if Cubelist.has_dontcare_cube f then Cubelist.zero
-      else if Cubelist.num_cubes f = 1 then simple_complement f.(0)
+      else if Cubelist.num_cubes f = 1 then simple_complement (Cubelist.get f 0)
       else
         let i = Tautology.best_selection f in
         let p = complement (Cubelist.positive_cofactor i f) in
@@ -221,7 +231,7 @@ end
 module Calculator = struct
 
   let not_ a = Complement.complement a
-  let or_ a b = Array.concat [a; b]
+  let or_ a b = Cubelist.concat [a; b]
   let and_ n m = not_ (or_ (not_ n) (not_ m))
 
   let rec eval (state, cmds) = 
@@ -235,4 +245,36 @@ module Calculator = struct
     eval cmds
 
 end
+
+open Expr
+
+module S = Set.Make(struct type t = Expr.t let compare = compare end)
+module M = Map.Make(struct type t = Expr.t let compare = compare end)
+
+(* search for input variables, return as a set *)
+let rec find_vars = function
+  | T -> S.empty
+  | F -> S.empty
+  | Var _ as x -> S.singleton x
+  | Not(a) -> find_vars a
+  | And(a,b) | Or(a,b) | Xor(a,b) -> S.union (find_vars a) (find_vars b)
+
+(* map of variables to indices - no specific ordering *)
+let var_map var_set = 
+  fst @@ S.fold (fun v (m,i) -> M.add v i m, i+1) var_set (M.empty,0) 
+
+let build e = 
+  let vars = var_map @@ find_vars e in
+  let n_vars = M.cardinal vars in
+  let rec build = function
+    | T -> Cubelist.zero
+    | F -> Cubelist.one n_vars
+    | Var _ as x -> Cubelist.of_cube @@ Cube.single_var_true n_vars (M.find x vars)
+    | Not(Var _ as x) -> Cubelist.of_cube @@ Cube.single_var_compl n_vars (M.find x vars)
+    | Not(a) -> Calculator.not_ (build a)
+    | And(a,b) -> Calculator.and_ (build a) (build b)
+    | Or(a,b) -> Calculator.or_ (build a) (build b)
+    | Xor(a,b) -> build Expr.((~: a &: b) |: (a &: ~: b))
+  in
+  build e
 
