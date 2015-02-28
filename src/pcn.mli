@@ -7,7 +7,7 @@ type v =
 
 (** operations on a single cube *)
 module Cube : sig
-  type t = private v array 
+  type t 
   
   val init : int -> (int -> v) -> t
   val fold : ('a -> v -> 'a) -> 'a -> t -> 'a
@@ -34,17 +34,21 @@ end
 
 (** operations on cube lists *)
 module Cubelist : sig
-  type t = private Cube.t array 
+  type t 
 
   val num_cubes : t -> int
   val num_vars : t -> int
   val fold : ('a -> Cube.t -> 'a) -> 'a -> t -> 'a
   val map : (Cube.t -> Cube.t) -> t -> t
-  val get : t -> int -> Cube.t
   val concat : t list -> t
 
   val of_list : Cube.t list -> t
-  val of_cube : Cube.t -> t
+  val to_list : t -> Cube.t list 
+
+  val one : int -> t
+  val zero : t
+
+  val print : t -> unit
 
   val fold_var : int -> ('a -> v -> 'a) -> 'a -> t -> 'a
   val map_vars : (int -> 'a) -> t -> 'a array
@@ -62,10 +66,6 @@ module Cubelist : sig
   val positive_cofactor : int -> t -> t
   val negative_cofactor : int -> t -> t
 
-  val one : int -> t
-  val zero : t
-
-  val print : t -> unit
 end
 
 (** compute tautology *)

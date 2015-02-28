@@ -6,7 +6,9 @@ open HardCamlBloop
 open Expr
 open Pcn
 
-(* a bunch of functions in SOP form.  -ve indices represent a complement *)
+(* a bunch of functions in SOP form.  
+ * indices start at 1.
+ * -ve indices represent the complement *)
 
 let t0 = 5, [
   [ 2; 3; 4];
@@ -332,6 +334,20 @@ let t4 = 10, [
   [-1; 2; -3; 4; -5; -6; 7; -8; -9;]; 
 ]
 
+(* create a random sop expression (many seem to be == 1!) *)
+let rand_sop () = 
+  let max_vars = 20 in
+  let max_terms = 100 in 
+  let rand lim = (Random.int lim) + 1 in
+  let n_vars = rand max_vars in 
+  let n_terms = rand max_terms in 
+  n_vars, Array.init n_terms (fun _ ->
+    let n_vars = rand n_vars in (* number of terms in product *)
+    Array.init n_vars (fun _ ->
+      let x = rand n_vars in (* variable *)
+      if Random.int 2 = 0 then - x (* complement? *)
+      else x) |> Array.to_list) |> Array.to_list
+
 let compl = Complement.complement
 let tautology = Tautology.check 
 
@@ -352,7 +368,9 @@ let (^:) a b =
 let check test = 
   let f = mk_pcn test in
   let f' = compl f in
-  printf "%b\n" (tautology (f ^: f'))
+  printf "[%i] %b\n" 
+    (Cubelist.num_cubes f')
+    (tautology (f ^: f'))
 
 let () = check t0
 let () = check t1

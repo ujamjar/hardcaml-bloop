@@ -58,23 +58,51 @@ end
 
 module Cubelist = struct
 
-  type t = Cube.t array
-
-  let num_cubes = Array.length
+  (* different internal implementations as an array of cubes, or set of cubes.
+   * The later has the advantage that it automatically merges/removes identical
+   * cubes *)
+  module type S = sig
+    type t 
+    val num_cubes : t -> int
+    val num_vars : t -> int
+    val fold : ('a -> Cube.t -> 'a) -> 'a -> t -> 'a
+    val map : (Cube.t -> Cube.t) -> t -> t
+    val concat : t list -> t
+    val of_list : Cube.t list -> t
+    val to_list : t -> Cube.t list 
+    val one : int -> t
+    val zero : t
+    val print : t -> unit
+  end 
+  module Arr : S = struct
+    type t = Cube.t array
+    let num_cubes = Array.length
+    let num_vars c = if num_cubes c = 0 then 0 else Cube.num_vars c.(0)
+    let fold = Array.fold_left
+    let map = Array.map
+    let concat = Array.concat
+    let of_list = Array.of_list
+    let to_list = Array.to_list
+    let one n = [| Cube.one n |]
+    let zero = [||]
+    let print = Array.iter Cube.print
+  end
+  module Set : S = struct
+    module S = Set.Make(struct type t = Cube.t let compare = compare end)
+    type t = S.t
+    let num_cubes = S.cardinal
+    let num_vars c = if num_cubes c = 0 then 0 else Cube.num_vars (S.choose c)
+    let fold f a cl = S.fold (fun c a -> f a c) cl a
+    let map f cl = S.fold (fun c d -> S.add (f c) d) cl S.empty
+    let concat = List.fold_left S.union S.empty
+    let of_list l = List.fold_left (fun s x -> S.add x s) S.empty l
+    let to_list = S.elements
+    let one n = S.singleton (Cube.one n)
+    let zero = S.empty
+    let print = S.iter Cube.print
+  end
   
-  let num_vars c = if num_cubes c = 0 then 0 else Cube.num_vars c.(0)
-
-  let fold = Array.fold_left
-
-  let map = Array.map
-
-  let get = Array.get
-
-  let concat = Array.concat
-
-  let of_list = Array.of_list
-
-  let of_cube c = [| c |]
+  include Set
 
   let fold_var i f = fold (fun a c -> f a (Cube.get c i))
 
@@ -102,7 +130,7 @@ module Cubelist = struct
 
   (* this might need a bit more testing (and possibly a better implementation strategy) *)
   let has_single_var_true_and_compl cl = 
-    let cl = Array.of_list @@ List.filter Cube.is_single_var (Array.to_list cl) in
+    let cl = of_list @@ List.filter Cube.is_single_var (to_list cl) in
     let x = map_fold_vars 
       (fun a -> function
         | F -> a lor 1
@@ -117,18 +145,13 @@ module Cubelist = struct
       (0,0) cl 
 
   let cofactor f i cl = 
-    Array.to_list cl
+    to_list cl
     |> List.map (f i)
     |> filter_none
-    |> Array.of_list
+    |> of_list
 
   let positive_cofactor = cofactor Cube.positive_cofactor
   let negative_cofactor = cofactor Cube.negative_cofactor
-
-  let one n = [| Cube.one n |]
-  let zero = [||]
-
-  let print = Array.iter Cube.print
 
 end
 
@@ -145,7 +168,7 @@ module Tautology = struct
     | Binate of int * int (* sum and diff *)
     | Unate of int (* num cubes unate in *)
 
-  let selection_metrics cl = 
+  let selection_metrics : Cubelist.t -> sel array = fun cl ->
     let m = Cubelist.count_true_and_compl cl in
     Array.map 
       (fun (t,f) -> 
@@ -154,7 +177,7 @@ module Tautology = struct
         else Binate((t+f), abs (t-f))) 
       m
 
-  let best_selection cl = 
+  let best_selection : Cubelist.t -> int = fun cl -> 
     let m = selection_metrics cl in
     let idx,_,_ = 
       Array.fold_left 
@@ -175,7 +198,7 @@ module Tautology = struct
     in
     idx
 
-  let rec check cl = 
+  let rec check (cl : Cubelist.t) = 
     if is_tautology cl then true
     else if not_tautology cl then false
     else
@@ -216,7 +239,7 @@ module Complement = struct
     let rec complement f = 
       if Cubelist.num_cubes f = 0 then Cubelist.one num_vars
       else if Cubelist.has_dontcare_cube f then Cubelist.zero
-      else if Cubelist.num_cubes f = 1 then simple_complement (Cubelist.get f 0)
+      else if Cubelist.num_cubes f = 1 then simple_complement (List.hd (Cubelist.to_list f))
       else
         let i = Tautology.best_selection f in
         let p = complement (Cubelist.positive_cofactor i f) in
@@ -269,8 +292,8 @@ let build e =
   let rec build = function
     | T -> Cubelist.zero
     | F -> Cubelist.one n_vars
-    | Var _ as x -> Cubelist.of_cube @@ Cube.single_var_true n_vars (M.find x vars)
-    | Not(Var _ as x) -> Cubelist.of_cube @@ Cube.single_var_compl n_vars (M.find x vars)
+    | Var _ as x -> Cubelist.of_list [Cube.single_var_true n_vars (M.find x vars)]
+    | Not(Var _ as x) -> Cubelist.of_list [Cube.single_var_compl n_vars (M.find x vars)]
     | Not(a) -> Calculator.not_ (build a)
     | And(a,b) -> Calculator.and_ (build a) (build b)
     | Or(a,b) -> Calculator.or_ (build a) (build b)
