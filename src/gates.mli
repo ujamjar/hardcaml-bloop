@@ -28,8 +28,8 @@ module Consistency : sig
   type temp_var = unit -> Expr.t
   val temp_var : unit -> Expr.t
 
-  val btrue : Expr.t -> Expr.t list list
-  val bfalse : Expr.t -> Expr.t list list
+  (*val btrue : Expr.t -> Expr.t list list
+  val bfalse : Expr.t -> Expr.t list list*)
   val bwire : Expr.t -> Expr.t -> Expr.t list list
   val bnot : Expr.t -> Expr.t -> Expr.t list list
   val bnor : Expr.t -> Expr.t list -> Expr.t list list

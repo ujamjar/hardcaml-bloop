@@ -15,7 +15,16 @@ module Cube : sig
   val num_vars : t -> int
   val get : t -> int -> v
   val to_list : t -> v list
+  val to_array : t -> v array
+  val of_list : v list -> t
+  val of_array : v array -> t
 
+  val to_bits : v -> int
+  val of_bits : int -> v
+
+  val intersect : t -> t -> t option
+  val supercube : t -> t -> t
+    
   val is_dontcare : t -> bool
   val count_dontcare : t -> int
   val count_true : t -> int
@@ -45,6 +54,10 @@ module Cubelist : sig
   val of_list : Cube.t list -> t
   val to_list : t -> Cube.t list 
 
+  val choose : t -> Cube.t * t
+  val remove : Cube.t -> t -> t
+  val add : Cube.t -> t -> t
+
   val one : int -> t
   val zero : t
 
@@ -66,11 +79,14 @@ module Cubelist : sig
   val positive_cofactor : int -> t -> t
   val negative_cofactor : int -> t -> t
 
+  val sop : t -> int list list
+
 end
 
 (** compute tautology *)
 module Tautology : sig
 
+  (* recursion termination checks *)
   val not_tautology : Cubelist.t -> bool
   val is_tautology : Cubelist.t -> bool
 
@@ -105,5 +121,11 @@ module Calculator : sig
     Cubelist.t 
 end
 
-val build : Expr.t -> Cubelist.t
+val (~:) : Cubelist.t -> Cubelist.t
+val (&:) : Cubelist.t -> Cubelist.t -> Cubelist.t
+val (|:) : Cubelist.t -> Cubelist.t -> Cubelist.t
+val (^:) : Cubelist.t -> Cubelist.t -> Cubelist.t
+val tautology : Cubelist.t -> bool
+
+val build : Expr.t -> Cubelist.t * int Expr.M.t
 

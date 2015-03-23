@@ -1,8 +1,11 @@
 # OASIS_START
-# DO NOT EDIT (digest: 668bc4713429824b3caa05f917cdec13)
+# DO NOT EDIT (digest: 091cb7aa6e5b9830efdbb3c702468dcc)
 Expr
 Pcn
 Gates
 Bddx
 Sat
+Kmap
+Algebraic
+Espresso
 # OASIS_STOP

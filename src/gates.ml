@@ -212,9 +212,9 @@ module Consistency = struct
       incr c;
       s)
 
-  let bfalse z = [ [z]; [~. z] ] (* z & z' = 0 *)
+  (*let bfalse z = [ [z]; [~. z] ] (* z & z' = 0 *)
 
-  let btrue z = [ [z; ~. z] ] (* z | z' = 1 *)
+  let btrue z = [ [z; ~. z] ] (* z | z' = 1 *)*)
 
   let bwire z x = [ [~. x; z]; [x; ~. z] ]
 

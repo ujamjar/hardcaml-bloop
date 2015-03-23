@@ -1,26 +1,15 @@
 (* interface to ocaml-bdd library *)
 
-module S = Set.Make(struct type t = Expr.t let compare = compare end)
-module M = Map.Make(struct type t = Expr.t let compare = compare end)
-
 open Expr
 
 type var_map = int M.t
 type t = Bdd.t
 
-(* search for input variables, return as a set *)
-let rec find_vars = function
-  | T -> S.empty
-  | F -> S.empty
-  | Var _ as x -> S.singleton x
-  | Not(a) -> find_vars a
-  | And(a,b) | Or(a,b) | Xor(a,b) -> S.union (find_vars a) (find_vars b)
-
-(* map of variables to indices - no specific ordering *)
+(* map of variables to indices - no specific ordering, starts from 1 *)
 let var_map var_set = 
   fst @@ S.fold (fun v (m,i) -> M.add v i m, i+1) var_set (M.empty,1) 
 
-let var_set = List.fold_left (fun set o -> S.union set (find_vars o))
+let var_set = List.fold_left (fun set o -> S.union set (Expr.find_vars o))
 
 let vars_of_expr e = var_map (find_vars e)
 let vars_of_signal s = var_map (var_set S.empty s)

@@ -348,8 +348,8 @@ let rand_sop () =
       if Random.int 2 = 0 then - x (* complement? *)
       else x) |> Array.to_list) |> Array.to_list
 
-let compl = Complement.complement
-let tautology = Tautology.check 
+let compl = Pcn.(~:) 
+let tautology = Pcn.tautology
 
 (* read sop form and create pcn *)
 let mk_pcn (n_vars, cubes) = 
@@ -358,11 +358,6 @@ let mk_pcn (n_vars, cubes) =
       if List.mem (i+1) c then T
       else if List.mem (-(i+1)) c then F
       else X)) cubes)
-
-(* xor using pcn *)
-let (^:) a b = 
-  let (~:),(&:),(|:) = Pcn.Calculator.(not_, and_, or_) in
-  ((~: a &: b) |: (a &: ~: b))
 
 (* complement and check *)
 let check test = 

@@ -20,6 +20,29 @@ module Cube = struct
   let num_vars = Array.length 
   let get = Array.get
   let to_list = Array.to_list
+  let of_list = Array.of_list
+  let to_array x = x
+  let of_array x = x
+
+  exception Bad_cube_value
+
+  let to_bits = function
+    | T -> 1
+    | F -> 2
+    | X -> 3
+
+  let of_bits = function
+    | 1 -> T
+    | 2 -> F
+    | 3 -> X
+    | _ -> raise Bad_cube_value
+
+  let intersect c0 c1 = 
+    try Some(init (num_vars c0) (fun i -> of_bits @@ (to_bits c0.(i)) land (to_bits c1.(i))))
+    with Bad_cube_value -> None
+
+  let supercube c0 c1 = 
+    init (num_vars c0) (fun i -> of_bits @@ (to_bits c0.(i)) lor (to_bits c1.(i)))
 
   let is_dontcare c = fold (fun a v -> a && (v = X)) true c
 
@@ -70,6 +93,9 @@ module Cubelist = struct
     val concat : t list -> t
     val of_list : Cube.t list -> t
     val to_list : t -> Cube.t list 
+    val choose : t -> Cube.t * t
+    val remove : Cube.t -> t -> t
+    val add : Cube.t -> t -> t
     val one : int -> t
     val zero : t
     val print : t -> unit
@@ -83,6 +109,9 @@ module Cubelist = struct
     let concat = Array.concat
     let of_list = Array.of_list
     let to_list = Array.to_list
+    let choose c = c.(0), Array.init (num_cubes c - 1) (fun i -> c.(i+1))
+    let remove c cl = of_list @@ List.filter ((<>) c) @@ to_list cl
+    let add c cl = Array.concat [ [|c|]; cl ]
     let one n = [| Cube.one n |]
     let zero = [||]
     let print = Array.iter Cube.print
@@ -97,6 +126,9 @@ module Cubelist = struct
     let concat = List.fold_left S.union S.empty
     let of_list l = List.fold_left (fun s x -> S.add x s) S.empty l
     let to_list = S.elements
+    let choose c = let x = S.choose c in x, S.remove x c
+    let remove = S.remove
+    let add = S.add
     let one n = S.singleton (Cube.one n)
     let zero = S.empty
     let print = S.iter Cube.print
@@ -152,6 +184,18 @@ module Cubelist = struct
 
   let positive_cofactor = cofactor Cube.positive_cofactor
   let negative_cofactor = cofactor Cube.negative_cofactor
+
+  (* convert cubelist to sop form *)
+  let sop c = 
+    let cube c = 
+      List.sort (fun a b -> compare (abs a) (abs b)) @@ fst @@ Cube.fold 
+        (fun (a,i) v ->
+          match v with 
+          | T -> i :: a, i+1
+          | F -> -i :: a, i+1
+          | X -> a,i+1) ([],1) c 
+    in
+    fold (fun a c -> cube c :: a) [] c
 
 end
 
@@ -271,23 +315,16 @@ end
 
 open Expr
 
-module S = Set.Make(struct type t = Expr.t let compare = compare end)
-module M = Map.Make(struct type t = Expr.t let compare = compare end)
-
-(* search for input variables, return as a set *)
-let rec find_vars = function
-  | T -> S.empty
-  | F -> S.empty
-  | Var _ as x -> S.singleton x
-  | Not(a) -> find_vars a
-  | And(a,b) | Or(a,b) | Xor(a,b) -> S.union (find_vars a) (find_vars b)
-
-(* map of variables to indices - no specific ordering *)
-let var_map var_set = 
-  fst @@ S.fold (fun v (m,i) -> M.add v i m, i+1) var_set (M.empty,0) 
+let (~:) = Complement.complement
+let (&:) = Calculator.and_
+let (|:) = Calculator.or_
+let (^:) a b = ((~: a &: b) |: (a &: ~: b))
+let tautology = Tautology.check
 
 let build e = 
-  let vars = var_map @@ find_vars e in
+  (* map of variables to indices - no specific ordering, starts from 0 *)
+  let var_map var_set = fst @@ S.fold (fun v (m,i) -> M.add v i m, i+1) var_set (M.empty,0) in
+  let vars = var_map @@ Expr.find_vars e in
   let n_vars = M.cardinal vars in
   let rec build = function
     | T -> Cubelist.zero
@@ -299,5 +336,5 @@ let build e =
     | Or(a,b) -> Calculator.or_ (build a) (build b)
     | Xor(a,b) -> build Expr.((~: a &: b) |: (a &: ~: b))
   in
-  build e
+  build e, vars
 

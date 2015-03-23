@@ -7,7 +7,7 @@ open Expr
 let a = var "a"
 let b = var "b"
 
-let tautology e = Pcn.Tautology.check @@ Pcn.build e
+let tautology e = Pcn.(tautology @@ fst @@ build e)
 let (==:) a b = ~: (a ^: b)
 
 let () = printf "a | a' : %b\n" @@ tautology (a |: ~: a)

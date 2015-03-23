@@ -6,7 +6,7 @@ Description: Design, simulate, analyse and transform RTL
   level hardware designs.
 
 Authors:     Andy Ray
-Maintainers: Andy Ray <andy.ray@unjamjar.org>
+Maintainers: Andy Ray <andy.ray@ujamjar.org>
 Homepage:    https://github.com/ujamjar/hardcaml-bloop
 License:     ISC
 Plugins:     META (0.4)
@@ -16,9 +16,9 @@ Library HardCamlBloop
   Path:          src
   Findlibname:   hardcaml-bloop
   Pack:          true
-  Modules:       Expr, Pcn, Gates, Bddx, Sat
-  BuildDepends:  hardcaml, minisat, bdd
-  XMETARequires: hardcaml, minisat, bdd
+  Modules:       Expr, Pcn, Gates, Bddx, Sat, Kmap, Algebraic, Espresso
+  BuildDepends:  hardcaml, minisat, bdd, uutf, gg, vg
+  XMETARequires: hardcaml, minisat, bdd, uutf, gg, vg
 
 Executable pcn_taut
   Path:               test

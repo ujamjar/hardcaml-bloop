@@ -27,10 +27,10 @@ let bdd = of_signal order f
 let () = List.iter show bdd
 
 (* best order (constructed manually) *)
-let order = List.fold_right (fun (k,v) m -> M.add k v m) 
+let order = List.fold_right (fun (k,v) m -> Expr.M.add k v m) 
   List.(concat (Array.to_list @@ Array.init 4 
     (fun i -> [ List.hd (bit a i),(i*2+1); List.hd (bit b i),(i*2+2)])))
-  M.empty
+  Expr.M.empty
 let bdd = of_signal order f
 let () = List.iter show bdd
 

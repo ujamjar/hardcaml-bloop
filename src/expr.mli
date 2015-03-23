@@ -19,6 +19,12 @@ val (|:) : t -> t -> t
 val (^:) : t -> t -> t
 val (&:) : t -> t -> t
 
+(** set of exprs *)
+module S : Set.S with type elt = t 
+
+(** map of exprs *)
+module M : Map.S with type key = t
+
 (** convert to string *)
 val string_of_t : t -> string
 
@@ -50,6 +56,9 @@ val shannon_expansion : t -> t -> t
 (** evaluate at each given var by taking given cofactor *)
 val eval : (t * t) list -> t -> t
 
+(** find set of vars in expr *)
+val find_vars : t -> S.t
+
 type truth_table = (string * int) array * int array
 
 val truth_table : t -> truth_table
@@ -57,4 +66,6 @@ val truth_table : t -> truth_table
 val html_of_truth_table : truth_table -> string
 
 val html_of_truth_tables : truth_table list -> string
+
+
 

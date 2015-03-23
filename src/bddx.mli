@@ -1,9 +1,6 @@
 (* interface to ocaml-bdd library *)
 
-module S : Set.S with type elt = Expr.t 
-module M : Map.S with type key = Expr.t
-
-type var_map = int M.t
+type var_map = int Expr.M.t
 type t = Bdd.t
 
 val vars_of_expr : Expr.t -> var_map
@@ -51,7 +48,7 @@ val term_of_solution : var_map -> soln -> Expr.t
 
 module V : Set.S with type elt = Expr.t * float
 
-type mask_set = S.t
+type mask_set = Expr.S.t
 
 val depth : mask_set -> Expr.t -> int
 val find_max_depth : mask_set -> Gates.Comb.t list -> Expr.t

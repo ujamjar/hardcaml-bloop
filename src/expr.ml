@@ -17,6 +17,14 @@ let (|:) a b = Or(a, b)
 let (^:) a b = Xor(a, b)
 let (&:) a b = And(a, b)
 
+type t' = t (* hack *)
+module X = struct
+  type t = t'
+  let compare = compare
+end
+module S = Set.Make(X)
+module M = Map.Make(X)
+
 let string_of_t' var_ not_ xor_ b = 
   let rec f level b = 
     let bracket l s = if l > level then "(" ^ s ^ ")" else s in
@@ -132,6 +140,14 @@ let rec eval xs f =
   | [] -> f 
   | (x,v)::t -> eval t (cofactor x v f)
 
+(* search for input variables, return as a set *)
+let rec find_vars = function
+  | T -> S.empty
+  | F -> S.empty
+  | Var _ as x -> S.singleton x
+  | Not(a) -> find_vars a
+  | And(a,b) | Or(a,b) | Xor(a,b) -> S.union (find_vars a) (find_vars b)
+
 type truth_table = (string * int) array * int array
 
 let truth_table f = 
@@ -162,24 +178,25 @@ let html_of_truth_table (headings, data) =
   let h, d = Array.to_list headings, Array.to_list data in
   let n_vars = List.length h in
   let headings = 
-      let hd (x,i) = "<th>" ^ (x^string_of_int i) ^ "</th>" in
-      let hd = String.concat "" ("result" :: (List.map hd h)) in
-      String.concat "" ["<tr>"; hd; "</tr>"]
+      let hd (x,i) = "<th>" ^ (x^string_of_int i) ^ "</th>\n" in
+      let hd = String.concat "" ("<th>result</th>" :: (List.map hd h)) in
+      String.concat "" ["<tr>\n"; hd; "</tr>\n"]
   in
   let data = List.mapi 
       (fun i res ->
-          let dt x = "<td><center>" ^ string_of_int x ^ "</center></td>" in
+          let dt x = "<td><center>" ^ string_of_int x ^ "</center></td>\n" in
           let dv = Array.init n_vars (fun j -> dt ((i lsr j) land 1)) |> Array.to_list in
           let d = String.concat "" ([ dt res ] @ dv) in
-          String.concat "" ["<tr>"; d; "</tr>"]
+          String.concat "" ["<tr>\n"; d; "</tr>\n"]
       ) d
   in
   (* heading row *)
-  "<table>" ^ String.concat "" (headings :: data) ^ "</table>"
+  "<table>\n" ^ String.concat "" (headings :: data) ^ "</table>\n"
 
 let html_of_truth_tables x = 
   ("<table><tr>" ^ 
     (String.concat "" 
-      (List.map (fun x -> "<td><table>"^(html_of_truth_table x) ^ "</td></table>") x)) ^ 
+      (List.map (fun x -> "<td>"^(html_of_truth_table x) ^ "</td>") x)) ^ 
   "</tr><table>")
+
 

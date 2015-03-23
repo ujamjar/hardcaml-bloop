@@ -1,8 +1,8 @@
 # OASIS_START
-# DO NOT EDIT (digest: 745fa6c1ad8eba1ca5700f38f1de8664)
+# DO NOT EDIT (digest: 121c76236c1f2bf5553832ee5590002f)
 version = "1.1"
 description = "Boolean tools for HardCaml"
-requires = "hardcaml minisat bdd"
+requires = "hardcaml minisat bdd uutf gg vg"
 archive(byte) = "HardCamlBloop.cma"
 archive(byte, plugin) = "HardCamlBloop.cma"
 archive(native) = "HardCamlBloop.cmxa"
