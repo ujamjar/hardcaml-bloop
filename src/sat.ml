@@ -58,7 +58,7 @@ let of_signal ?(cleaner=true) s =
     let c = of_signal s in
     match cleanup ~cleaner (List.hd c) with
     | `unsat -> `unsat
-    | `expr c -> eval c
+    | `expr c -> eval ~cleaner:false c (* dont clean again *)
 
 open Printf
 
