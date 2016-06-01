@@ -25,6 +25,120 @@ end
 module S = Set.Make(X)
 module M = Map.Make(X)
 
+type counts = 
+  {
+    consts : int;
+    vars : int;
+    nots : int;
+    ors : int;
+    xors : int;
+    ands : int;
+    lookups : int;
+  }
+(*
+let counts e = 
+  let consts = ref 0 in
+  let vars = ref 0 in
+  let nots = ref 0 in
+  let ors = ref 0 in
+  let xors = ref 0 in
+  let ands = ref 0 in
+  let rec f = function
+    | T | F -> incr consts
+    | Var _ -> incr vars
+    | Not(a) -> incr nots; f a
+    | Or(a,b) -> incr ors; f a; f b
+    | Xor(a,b) -> incr xors; f a; f b
+    | And(a,b) -> incr ands; f a; f b
+  in 
+  f e;
+  {
+    consts = !consts;
+    vars = !vars;
+    nots = !nots;
+    ors = !ors;
+    xors = !xors;
+    ands = !ands;
+    lookups = 0;
+  }
+*)
+let counts e = 
+  let hash = Hashtbl.create (1024*1024+9) in
+  let consts = ref 0 in
+  let vars = ref 0 in
+  let nots = ref 0 in
+  let ors = ref 0 in
+  let xors = ref 0 in
+  let ands = ref 0 in
+  let lookups = ref 0 in
+  let rec f e =
+    incr lookups;
+    match Hashtbl.find hash e with
+    | _ -> () (* already visited *)
+    | exception Not_found -> begin
+      Hashtbl.add hash e ();
+      match e with
+      | T | F -> incr consts
+      | Var _ -> incr vars
+      | Not(a) -> incr nots; f a
+      | Or(a,b) -> incr ors; f a; f b
+      | Xor(a,b) -> incr xors; f a; f b
+      | And(a,b) -> incr ands; f a; f b
+    end
+  in
+  f e;
+  let stats = Hashtbl.stats hash in
+  Printf.printf "\
+bindings=%i
+buckets=%i
+max_bucket=%i
+" stats.Hashtbl.num_bindings 
+  stats.Hashtbl.num_buckets
+  stats.Hashtbl.max_bucket_length;
+  {
+    consts = !consts;
+    vars = !vars;
+    nots = !nots;
+    ors = !ors;
+    xors = !xors;
+    ands = !ands;
+    lookups = !lookups;
+  }
+
+let zero_counts = 
+  {
+    consts = 0;
+    vars = 0;
+    nots = 0;
+    ors = 0;
+    xors = 0;
+    ands = 0;
+    lookups = 0;
+  }
+
+let add_counts a b = 
+  {
+    consts = a.consts + b.consts;
+    vars = a.vars + b.vars;
+    nots = a.nots + b.nots;
+    ors = a.ors + b.ors;
+    xors = a.xors + b.xors;
+    ands = a.ands + b.ands;
+    lookups = a.lookups + b.lookups;
+  }
+
+let print_counts chan a = 
+  Printf.fprintf chan "\
+consts = %i
+vars = %i
+nots = %i
+ors = %i
+xors = %i
+ands = %i
+lookups = %i
+" 
+  a.consts a.vars a.nots a.ors a.xors a.ands a.lookups
+
 let string_of_t' var_ not_ xor_ b = 
   let rec f level b = 
     let bracket l s = if l > level then "(" ^ s ^ ")" else s in

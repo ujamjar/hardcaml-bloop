@@ -10,6 +10,7 @@ module Comb : sig
   include HardCaml.Comb.S with type t = Expr.t list
   val forall : t -> t -> t
   val exists : t -> t -> t
+  val counts : t -> Expr.counts
 end
 
 (** {2 Tseitin cnf conversion} *)

@@ -25,6 +25,22 @@ module S : Set.S with type elt = t
 (** map of exprs *)
 module M : Map.S with type key = t
 
+type counts = 
+  {
+    consts : int;
+    vars : int;
+    nots : int;
+    ors : int;
+    xors : int;
+    ands : int;
+    lookups : int;
+  }
+
+val counts : t -> counts
+val zero_counts : counts
+val add_counts : counts -> counts -> counts
+val print_counts : out_channel -> counts -> unit
+
 (** convert to string *)
 val string_of_t : t -> string
 

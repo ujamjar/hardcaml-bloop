@@ -47,7 +47,7 @@ Executable sat_const
 Executable sat_mul
   Path:               test
   MainIs:             sat_mul.ml
-  CompiledObject:     byte
+  CompiledObject:     best
   Install:            false
   BuildDepends:       hardcaml-bloop
 

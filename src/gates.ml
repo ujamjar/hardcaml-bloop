@@ -12,9 +12,9 @@ module Basic_bits_opt = struct
     | F, _ -> F
     | _, T -> a
     | T, _ -> b
-    | a, b when a=b -> a
+    (*| a, b when a=b -> a
     | Not(a),b when a=b -> F
-    | a,Not(b) when a=b -> F
+    | a,Not(b) when a=b -> F*)
     | _ -> And(a,b)
 
   let (|.) a b = 
@@ -24,9 +24,9 @@ module Basic_bits_opt = struct
     | T, _ -> T
     | _, F -> a
     | F, _ -> b
-    | a, b when a=b -> a
+    (*| a, b when a=b -> a
     | Not(a),b when a=b -> T
-    | a,Not(b) when a=b -> T
+    | a,Not(b) when a=b -> T*)
     | _ -> Or(a,b)
 
   let (~.) a = 
@@ -36,6 +36,21 @@ module Basic_bits_opt = struct
     | T -> F
     | Not(a) -> a 
     | _ -> Not a
+
+  let (^.) a b = 
+    let open Expr in
+    (*
+        0 0 : 0
+        0 1 : 1
+        1 0 : 1
+        1 1 : 0
+     *)
+    match a, b with
+    | _, F -> a
+    | F, _ -> b
+    | _, T -> Not a
+    | T, _ -> Not b
+    | _ -> Xor(a,b)
 
 end
 
@@ -49,10 +64,12 @@ module Basic_bits = struct
 
   let (~.) a = Not a
 
+  let (^.) a b = Xor(a,b)
+
 end
 
 include Basic_bits_opt
-let (^.) a b = ((~. a) &. b) |. (a &. (~. b))
+(*let (^.) a b = ((~. a) &. b) |. (a &. (~. b))*)
 
 module Base = struct
   
@@ -201,6 +218,8 @@ module Comb = struct
   let exists x f = 
     let exists_f f = List.fold_right Expr.exists x f in
     List.map exists_f f
+
+  let counts s = List.fold_left Expr.(fun t x -> add_counts t @@ counts x) Expr.zero_counts s
 
 end
 
