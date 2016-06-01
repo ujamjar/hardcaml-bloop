@@ -1,4 +1,6 @@
 S src
 S test
 B _build
+B _build/src
 PKG hardcaml
+PKG minisat

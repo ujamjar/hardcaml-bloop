@@ -1,39 +1,57 @@
 open HardCaml
 
-(* basic bit operators.  They optimise based on their arguments *)
 
-let (&.) a b = 
-  let open Expr in
-  match a, b with
-  | _, F 
-  | F, _ -> F
-  | _, T -> a
-  | T, _ -> b
-  | a, b when a=b -> a
-  | Not(a),b when a=b -> F
-  | a,Not(b) when a=b -> F
-  | _ -> And(a,b)
+module Basic_bits_opt = struct
+  (* basic bit operators that optimise based on their arguments *)
+  open Expr
 
-let (|.) a b = 
-  let open Expr in
-  match a, b with
-  | _, T 
-  | T, _ -> T
-  | _, F -> a
-  | F, _ -> b
-  | a, b when a=b -> a
-  | Not(a),b when a=b -> T
-  | a,Not(b) when a=b -> T
-  | _ -> Or(a,b)
+  let (&.) a b = 
+    let open Expr in
+    match a, b with
+    | _, F 
+    | F, _ -> F
+    | _, T -> a
+    | T, _ -> b
+    | a, b when a=b -> a
+    | Not(a),b when a=b -> F
+    | a,Not(b) when a=b -> F
+    | _ -> And(a,b)
 
-let (~.) a = 
-  let open Expr in
-  match a with
-  | F -> T
-  | T -> F
-  | Not(a) -> a 
-  | _ -> Not a
+  let (|.) a b = 
+    let open Expr in
+    match a, b with
+    | _, T 
+    | T, _ -> T
+    | _, F -> a
+    | F, _ -> b
+    | a, b when a=b -> a
+    | Not(a),b when a=b -> T
+    | a,Not(b) when a=b -> T
+    | _ -> Or(a,b)
 
+  let (~.) a = 
+    let open Expr in
+    match a with
+    | F -> T
+    | T -> F
+    | Not(a) -> a 
+    | _ -> Not a
+
+end
+
+module Basic_bits = struct
+  (* basic bit operators (no optimisation) *) 
+  open Expr
+
+  let (&.) a b = And(a,b)
+
+  let (|.) a b = Or(a,b)
+
+  let (~.) a = Not a
+
+end
+
+include Basic_bits_opt
 let (^.) a b = ((~. a) &. b) |. (a &. (~. b))
 
 module Base = struct
@@ -186,6 +204,109 @@ module Comb = struct
 
 end
 
+module Tseitin = struct
+
+  let bfalse z = [ [ - z ] ]
+
+  let btrue z = [ [ z ] ]
+
+  let bnot z x = [ [x; z]; [- x; - z] ]
+
+  let bnor z x = 
+    let sum = List.fold_right (fun x a -> x :: a) x [z] in
+    List.fold_right (fun x a -> [- x; - z] :: a) x [sum]
+
+  let bor z x = 
+    let sum = List.fold_right (fun x a -> x :: a) x [- z] in
+    List.fold_right (fun x a -> [- x; z] :: a) x [sum]
+
+  let bnand z x = 
+    let sum = List.fold_right (fun x a -> - x :: a) x [- z] in
+    List.fold_right (fun x a -> [x; z] :: a) x [sum]
+
+  let band z x =  
+    let sum = List.fold_right (fun x a -> - x :: a) x [z] in
+    List.fold_right (fun x a -> [x; - z] :: a) x [sum]
+
+  let bxor z a b = 
+    [ [- z; - a; - b]; [- z; a; b]; [z; - a; b]; [z; a; - b] ]
+
+  type cnf_term = int list list
+  type cnf_terms = 
+    | Var of int
+    | Ref of int
+    | Term of cnf_term * cnf_terms list
+  type t = 
+    {
+      nterms : int;
+      terms : cnf_terms;
+      vars : (int, Expr.t) Hashtbl.t;
+    }
+
+  let rec of_expr hashes vars new_idx e = 
+    let of_expr = of_expr hashes vars in
+
+    let check_hash e f = 
+      match hashes with
+      | None ->
+        let id = new_idx () in
+        let cnf = f id in
+        id, cnf
+      | Some(hashes) ->
+        match Hashtbl.find hashes e with
+        | _ as x -> x, Ref x
+        | exception Not_found ->
+          let id = new_idx () in
+          let cnf = f id in
+          Hashtbl.add hashes e id;
+          id, cnf
+    in
+
+    let const e f = check_hash e (fun id -> Term(f id, [])) in
+    let var e = check_hash e (fun id -> Hashtbl.add vars id e; Var id) in
+    let bnot e x = 
+      let eid, ecnf = of_expr new_idx x in
+      check_hash e (fun uid -> Term( bnot uid eid, [ecnf] ))
+    in
+    let binary e f a b =
+      let aid, acnf = of_expr new_idx a in
+      let bid, bcnf = of_expr new_idx b in
+      check_hash e (fun uid -> Term(f uid [aid; bid], [acnf; bcnf]))
+    in
+    let bxor e a b =
+      let aid, acnf = of_expr new_idx a in
+      let bid, bcnf = of_expr new_idx b in
+      check_hash e (fun uid -> Term(bxor uid aid bid, [acnf; bcnf]))
+    in
+
+    match e with
+    | Expr.T -> const e btrue 
+    | Expr.F -> const e bfalse 
+    | Expr.Var _ -> var e
+
+    (*| Expr.Not(Expr.And(e0, e1)) -> binary e bnand e0 e1
+    | Expr.Not(Expr.Or(e0, e1)) -> binary e bnor e0 e1*)
+    | Expr.And(e0, e1) -> binary e band e0 e1
+    | Expr.Or(e0, e1) -> binary e bor e0 e1
+    | Expr.Xor(e0,e1) -> bxor e e0 e1
+    | Expr.Not(e0) -> bnot e e0
+
+  let of_expr ?(sharing=true) e = 
+    let idx = ref 0 in
+    let new_idx () = incr idx; !idx in (* 1... *)
+    let hashes = if sharing then Some(Hashtbl.create (1024*1024)) else None in
+    let vars = Hashtbl.create 1024 in
+    let _, terms = of_expr hashes vars new_idx e in
+    {
+      nterms = !idx;
+      terms;
+      vars;
+    }
+
+  let of_signal ?(sharing=true) = List.map (of_expr ~sharing)
+
+end
+
 module Consistency = struct
 
   module Svar = Set.Make(struct type t = Expr.t let compare = compare end)
@@ -212,11 +333,11 @@ module Consistency = struct
       incr c;
       s)
 
-  (*let bfalse z = [ [z]; [~. z] ] (* z & z' = 0 *)
+  let bfalse z = [ [ ~. z ] ]
 
-  let btrue z = [ [z; ~. z] ] (* z | z' = 1 *)*)
+  let btrue z = [ [ z ] ]
 
-  let bwire z x = [ [~. x; z]; [x; ~. z] ]
+  (*let bwire z x = [ [~. x; z]; [x; ~. z] ]*)
 
   let bnot z x = [ [x; z]; [~. x; ~. z] ]
 
@@ -247,8 +368,8 @@ module Consistency = struct
         Sexpr.add (List.fold_right Svar.add x Svar.empty) s) Sexpr.empty
 
   let rec of_expr e = 
-    (*let btrue = to_sexpr @@ btrue in
-    let bfalse = to_sexpr @@ bfalse in*)
+    let btrue z = to_sexpr @@ btrue z in
+    let bfalse z = to_sexpr @@ bfalse z in
     let bnot z a = to_sexpr @@ bnot z a in
     let band z a b = to_sexpr @@ band z [a;b] in
     let bor z a b = to_sexpr @@ bor z [a;b] in
@@ -256,6 +377,16 @@ module Consistency = struct
     let bnor z a b = to_sexpr @@ bnor z [a;b] in
     let bxor z a b = to_sexpr @@ bxor z a b in
 
+    let op0 f = 
+      let t = temp_var () in
+      let f = f t in
+      {
+        input_vars = Svar.empty;
+        temp_vars = Svar.singleton t;
+        exprs = f; 
+        out_var = t;
+      }
+    in
     let op1 f e0 = 
       let t = temp_var () in
       let t0 = of_expr e0 in
@@ -285,8 +416,8 @@ module Consistency = struct
 
     match e with 
 
-    | Expr.T -> var Expr.T
-    | Expr.F -> var Expr.F
+    | Expr.T -> op0 btrue
+    | Expr.F -> op0 bfalse
 
     | Expr.Var _ -> { (var e) with input_vars = Svar.singleton e }
     (*| Expr.Not(Expr.Var _) -> { (var e) with input_vars = Svar.singleton e }*)

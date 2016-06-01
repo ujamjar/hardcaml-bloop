@@ -44,6 +44,14 @@ Executable sat_const
   Install:            false
   BuildDepends:       hardcaml-bloop
 
+Executable sat_mul
+  Path:               test
+  MainIs:             sat_mul.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       hardcaml-bloop
+
 Executable sat_repair
   Path:               test
   MainIs:             sat_repair.ml
