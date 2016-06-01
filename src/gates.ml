@@ -243,27 +243,32 @@ module Tseitin = struct
       vars : (int, Expr.t) Hashtbl.t;
     }
 
-  let rec of_expr hashes vars new_idx e = 
-    let of_expr = of_expr hashes vars in
+  let rec of_expr sharing hashes vars new_idx e = 
+    let of_expr = of_expr sharing hashes vars in
+
+    (* hash check for sharing.  Vars are always checked *)
+    let always_check_hash e f =
+      match Hashtbl.find hashes e with
+      | _ as x -> x, Ref x
+      | exception Not_found ->
+        let id = new_idx () in
+        let cnf = f id in
+        Hashtbl.add hashes e id;
+        id, cnf
+    in
 
     let check_hash e f = 
-      match hashes with
-      | None ->
+      if sharing then always_check_hash e f
+      else
         let id = new_idx () in
         let cnf = f id in
         id, cnf
-      | Some(hashes) ->
-        match Hashtbl.find hashes e with
-        | _ as x -> x, Ref x
-        | exception Not_found ->
-          let id = new_idx () in
-          let cnf = f id in
-          Hashtbl.add hashes e id;
-          id, cnf
     in
 
     let const e f = check_hash e (fun id -> Term(f id, [])) in
-    let var e = check_hash e (fun id -> Hashtbl.add vars id e; Var id) in
+    let var e = 
+      always_check_hash e (fun id -> Hashtbl.add vars id e; Var id) 
+    in
     let bnot e x = 
       let eid, ecnf = of_expr new_idx x in
       check_hash e (fun uid -> Term( bnot uid eid, [ecnf] ))
@@ -294,9 +299,12 @@ module Tseitin = struct
   let of_expr ?(sharing=true) e = 
     let idx = ref 0 in
     let new_idx () = incr idx; !idx in (* 1... *)
-    let hashes = if sharing then Some(Hashtbl.create (1024*1024)) else None in
+    let hashes = 
+      if sharing then Hashtbl.create (1024*1024) 
+      else Hashtbl.create 1024
+    in
     let vars = Hashtbl.create 1024 in
-    let _, terms = of_expr hashes vars new_idx e in
+    let _, terms = of_expr sharing hashes vars new_idx e in
     {
       nterms = !idx;
       terms;

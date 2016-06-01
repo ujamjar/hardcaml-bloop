@@ -17,8 +17,8 @@ Library HardCamlBloop
   Findlibname:   hardcaml-bloop
   Pack:          true
   Modules:       Expr, Pcn, Gates, Bddx, Sat, Kmap, Algebraic, Espresso
-  BuildDepends:  hardcaml, minisat, bdd, uutf, gg, vg
-  XMETARequires: hardcaml, minisat, bdd, uutf, gg, vg
+  BuildDepends:  hardcaml, minisat, cryptominisat, bdd, uutf, gg, vg
+  XMETARequires: hardcaml, minisat, cryptominisat, bdd, uutf, gg, vg
 
 Executable pcn_taut
   Path:               test
@@ -47,8 +47,7 @@ Executable sat_const
 Executable sat_mul
   Path:               test
   MainIs:             sat_mul.ml
-  Custom:             true
-  CompiledObject:     best
+  CompiledObject:     byte
   Install:            false
   BuildDepends:       hardcaml-bloop
 

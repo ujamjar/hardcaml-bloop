@@ -4,6 +4,7 @@
 type model = Expr.t * int * [ `t | `f | `u ]
 type next_sat_result = unit -> sat_result
 and  sat_result = [ `sat of model list * next_sat_result | `unsat ]
+type solver = [ `crypto | `minisat ]
 
 (** run solver on a boolean expression.
  
@@ -16,23 +17,26 @@ and  sat_result = [ `sat of model list * next_sat_result | `unsat ]
     Otherwise returns `sat with a solution for the input variables and
     a function to find the next solution.
  *)
-val of_expr : ?verbose:bool -> ?sharing:bool -> Expr.t -> sat_result
+val of_expr : ?solver:solver -> ?verbose:bool -> ?sharing:bool -> Expr.t -> sat_result
 
 exception Sat_signal_width_not_1
 
 (** run the solver on a signal.  Raises [Sat_signal_width_not_1] if the signal
     is not 1 bit wide. *)
-val of_signal : ?verbose:bool -> ?sharing:bool -> Gates.Comb.t -> sat_result
+val of_signal : ?solver:solver -> ?verbose:bool -> ?sharing:bool -> Gates.Comb.t -> sat_result
 
 (** print results *)
 val report_soln : model list -> unit
 val report : sat_result -> unit
 
 (** {2 Depreciated; very slow *)
+module Old : sig
 
-(** run solver *)
-val eval_old : ?cleaner:bool -> Gates.Consistency.t -> sat_result
+  (** run solver *)
+  val eval : ?cleaner:bool -> Gates.Consistency.t -> sat_result
 
-(** run solver on a (1 bit) signal *)
-val of_signal_old : ?cleaner:bool -> Gates.Comb.t -> sat_result
+  (** run solver on a (1 bit) signal *)
+  val of_signal : ?cleaner:bool -> Gates.Comb.t -> sat_result
+
+end
 
