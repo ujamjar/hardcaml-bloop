@@ -17,13 +17,13 @@ type solver = [ `crypto | `minisat ]
     Otherwise returns `sat with a solution for the input variables and
     a function to find the next solution.
  *)
-val of_expr : ?solver:solver -> ?verbose:bool -> ?sharing:bool -> Expr.t -> sat_result
+val of_expr : ?solver:solver -> ?verbose:bool -> Expr.t -> sat_result
 
 exception Sat_signal_width_not_1
 
 (** run the solver on a signal.  Raises [Sat_signal_width_not_1] if the signal
     is not 1 bit wide. *)
-val of_signal : ?solver:solver -> ?verbose:bool -> ?sharing:bool -> Gates.Comb.t -> sat_result
+val of_signal : ?solver:solver -> ?verbose:bool -> Gates.Comb.t -> sat_result
 
 (** print results *)
 val report_soln : model list -> unit

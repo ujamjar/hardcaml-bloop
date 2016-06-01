@@ -16,7 +16,7 @@ exception Only_vars_allowed_in_sop of string
 
 let check_cube = List.iter 
   (function Var _ -> () 
-          | Not(Var _) -> () (* allow x', treat as different to x *)
+          | Not(_, Var _) -> () (* allow x', treat as different to x *)
           | _ as x -> raise (Only_vars_allowed_in_sop (string_of_t x)))
 
 let cubes_of_sop f = 

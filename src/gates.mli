@@ -10,7 +10,7 @@ module Comb : sig
   include HardCaml.Comb.S with type t = Expr.t list
   val forall : t -> t -> t
   val exists : t -> t -> t
-  val counts : t -> Expr.counts
+  val counts : Expr.Uset.t -> t -> Expr.Uset.t * Expr.counts
 end
 
 (** {2 Tseitin cnf conversion} *)
@@ -18,14 +18,10 @@ end
 (** Uses the Tseitin transformation to convert an 
     arbitrary gate expression to conjunctive normal
     form.
-
-    The optional sharing parameter (default true) uses
-    a hash table to detect internally shared nodes and
-    can dramatically reduce memory usage and improve
-    performance even with the the extra hashing and 
-    structural comparison.
 *)
 module Tseitin : sig
+
+  module Vmap : Map.S with type key = int
 
   type cnf_term = int list list
   type cnf_terms = 
@@ -36,7 +32,8 @@ module Tseitin : sig
     {
       nterms : int;
       terms : cnf_terms;
-      vars : (int, Expr.t) Hashtbl.t;
+      top_term : int;
+      vars : Expr.t Vmap.t;
     }
 
   (* Tseitin gate consistency functions *)
@@ -50,10 +47,10 @@ module Tseitin : sig
   val bxor : int -> int -> int -> int list list
 
   (** Convert an expression to cnf *)
-  val of_expr : ?sharing:bool -> Expr.t -> t
+  val of_expr : Expr.t -> t
 
   (** Convert a signal to cnf.  Each bit is a seperate cnf expression *)
-  val of_signal : ?sharing:bool -> Comb.t -> t list 
+  val of_signal : Comb.t -> t list 
 
 end
 

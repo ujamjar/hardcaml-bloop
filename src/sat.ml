@@ -79,9 +79,9 @@ module Cryptominisat_solver = struct
   end
 end
 
-let make_solver ?(solver=`minisat) ?(verbose=false) ?(sharing=true) s = 
+let make_solver ?(solver=`minisat) ?(verbose=false) s = 
     let open Gates.Tseitin in
-    let cnf = time verbose "tseitin" (of_expr ~sharing) s in
+    let cnf = time verbose "tseitin" of_expr s in
     let satsolver = 
       match solver with
       | `crypto -> new Cryptominisat_solver.t
@@ -96,11 +96,11 @@ let make_solver ?(solver=`minisat) ?(verbose=false) ?(sharing=true) s =
         List.iter clauses a
     in
     let () = time verbose "clauses" clauses cnf.terms in
-    let () = satsolver#add_clause [ cnf.nterms ] in
+    let () = satsolver#add_clause [ cnf.top_term ] in
     cnf.vars, satsolver
 
-let of_expr ?(solver=`minisat) ?(verbose=false) ?(sharing=true) s = 
-  let inputs, satsolver = make_solver ~solver ~verbose ~sharing s in
+let of_expr ?(solver=`minisat) ?(verbose=false) s = 
+  let inputs, satsolver = make_solver ~solver ~verbose s in
   let get_soln_value idx = 
     match satsolver#model idx with
     | exception _ -> `u (* if it happens? *)
@@ -108,7 +108,7 @@ let of_expr ?(solver=`minisat) ?(verbose=false) ?(sharing=true) s =
   in
   let get_soln () = 
     List.sort (fun (a,_,_) (b,_,_) -> compare a b) @@
-    Hashtbl.fold 
+    Gates.Tseitin.Vmap.fold 
       (fun idx v l -> (v, idx, get_soln_value idx) :: l) 
       inputs [] 
   in
@@ -136,9 +136,9 @@ let of_expr ?(solver=`minisat) ?(verbose=false) ?(sharing=true) s =
   in
   next [] ()
 
-let of_signal ?(solver=`minisat) ?(verbose=false) ?(sharing=true) s = 
+let of_signal ?(solver=`minisat) ?(verbose=false) s = 
   if Gates.Comb.width s <> 1 then raise Sat_signal_width_not_1
-  else of_expr ~solver ~verbose ~sharing (List.hd s)
+  else of_expr ~solver ~verbose (List.hd s)
 
 open Printf
 
@@ -147,10 +147,10 @@ let report_soln x =
   let rec sort l = 
     match l with
     | [] -> []
-    | (Expr.Var(n,_),_,_) :: _ ->
+    | (Expr.Var(_,n,_),_,_) :: _ ->
         let x,y = 
           List.partition 
-            (function (Expr.Var(n',_),_,_) when n=n' -> true | _ -> false)
+            (function (Expr.Var(_,n',_),_,_) when n=n' -> true | _ -> false)
             l
         in
         x :: sort y
@@ -158,16 +158,16 @@ let report_soln x =
   in
   let compare i j = 
     match i,j with
-    | (Expr.Var(_,i),_,_), (Expr.Var(_,j),_,_) -> - (compare i j) 
+    | (Expr.Var(_,_,i),_,_), (Expr.Var(_,_,j),_,_) -> - (compare i j) 
     | _ -> error ()
   in
   let f = List.map (List.sort compare) @@ sort x in
   let vec x = 
     match x with
     | [] -> "unknown", [||]
-    | (Expr.Var(n,i),_,_) :: _ -> 
+    | (Expr.Var(_,n,i),_,_) :: _ -> 
         let a = Array.init (i+1) (fun _ -> `u) in
-        List.iter (function (Expr.Var(_,i),_,v) -> a.(i) <- v | _ -> error()) x;
+        List.iter (function (Expr.Var(_,_,i),_,v) -> a.(i) <- v | _ -> error()) x;
         n, a
     | _ -> error()
   in
@@ -221,7 +221,7 @@ module Old = struct
               (fun s l ->
                 match s with
                 | Expr.Var(_) as x -> pos_lit (M.find x var_map) :: l
-                | Expr.Not(Expr.Var(_) as x) -> neg_lit (M.find x var_map) :: l
+                | Expr.Not(_,(Expr.Var(_) as x)) -> neg_lit (M.find x var_map) :: l
                 | _ -> failwith "Not a literal")
               sums
               []

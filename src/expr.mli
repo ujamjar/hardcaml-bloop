@@ -1,13 +1,22 @@
 (** {2 basic boolean expression type} *)
 
+type uid
+
 type t = 
   | T 
   | F 
-  | Var of string * int
-  | Not of t 
-  | Or of t * t 
-  | Xor of t * t 
-  | And of t * t
+  | Var of uid * string * int
+  | Not of uid * t 
+  | Or of uid * t * t 
+  | Xor of uid * t * t 
+  | And of uid * t * t
+
+val id : unit -> uid
+val uid : t -> uid
+val compare_uid : uid -> uid -> int
+
+module Uset : Set.S with type elt = uid
+module Umap : Map.S with type key = uid
 
 (** {2 boolean expression constants, variables and operators} *)
 
@@ -36,7 +45,7 @@ type counts =
     lookups : int;
   }
 
-val counts : t -> counts
+val counts : Uset.t -> t -> Uset.t * counts
 val zero_counts : counts
 val add_counts : counts -> counts -> counts
 val print_counts : out_channel -> counts -> unit

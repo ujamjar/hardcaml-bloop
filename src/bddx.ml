@@ -15,15 +15,15 @@ let vars_of_expr e = var_map (find_vars e)
 let vars_of_signal s = var_map (var_set S.empty s)
 let vars_of_signals s = var_map (List.fold_left var_set S.empty s)
 
-(* recursively construct the bdd *)
+(* recursively construct the bdd XXX use set to control recursion *)
 let rec build vars = function
   | T -> Bdd.one
   | F -> Bdd.zero
   | Var _ as x -> M.find x vars
-  | Not(a) -> Bdd.mk_not (build vars a)
-  | Or(a,b) -> Bdd.mk_or (build vars a) (build vars b)
-  | And(a,b) -> Bdd.mk_and (build vars a) (build vars b)
-  | Xor(a,b) -> build vars Gates.(((~. a) &. b) |. (a &. (~. b)))
+  | Not(_,a) -> Bdd.mk_not (build vars a)
+  | Or(_,a,b) -> Bdd.mk_or (build vars a) (build vars b)
+  | And(_,a,b) -> Bdd.mk_and (build vars a) (build vars b)
+  | Xor(_,a,b) -> build vars Gates.(((~. a) &. b) |. (a &. (~. b)))
 
 (* create bdd from Expr.t *)
 let of_expr vars e = 
@@ -54,7 +54,7 @@ let all_solutions = Bdd.all_sat
 let vars_of_solution var_map soln = 
   let module I = Map.Make(struct type t = int let compare = compare end) in
   let map = M.fold (fun k v m -> I.add v k m) var_map I.empty in
-  List.map (fun (v,b) -> if not b then Expr.Not(I.find v map) else I.find v map) soln
+  List.map (fun (v,b) -> if not b then Expr.Not(Expr.id(),I.find v map) else I.find v map) soln
 
 let term_of_solution var_map soln = 
   let vars = vars_of_solution var_map soln in
@@ -75,8 +75,8 @@ let rec depth set e =
   in
   match e with
   | T | F | Var _ -> 1
-  | Not a -> 1 + depth 0 a
-  | And(a,b) | Or(a,b) | Xor(a,b) -> 1 + (max (depth 0 a) (depth 1 b))
+  | Not(_,a) -> 1 + depth 0 a
+  | And(_,a,b) | Or(_,a,b) | Xor(_,a,b) -> 1 + (max (depth 0 a) (depth 1 b))
 
 (* get output with max depth *)
 let find_max_depth set signals = 
@@ -109,10 +109,10 @@ let rec max_input_weights (w,s) e =
   match e with
   | T | F -> V.empty
   | Var _ -> V.singleton (e, w)
-  | Not a -> 
+  | Not(_,a) -> 
     if masked a then V.empty
     else max_input_weights (w,s) a
-  | And(a,b) | Or(a,b) | Xor(a,b) -> begin
+  | And(_,a,b) | Or(_,a,b) | Xor(_,a,b) -> begin
     match masked a, masked b with
     | true, true -> V.empty
     | false, true -> max_input_weights (w,s) a
@@ -140,10 +140,10 @@ let rec erase_input s v e =
   match e with
   | T | F -> true, S.add e s
   | Var _ -> if v=e then true, S.add e s else false, s
-  | Not a -> 
+  | Not(_,a) -> 
     let erase, s = erase s a 0 in
     if erase then true, S.add e s else false, s
-  | And(a,b) | Or(a,b) | Xor(a,b) ->
+  | And(_,a,b) | Or(_,a,b) | Xor(_,a,b) ->
     let erase0, s = erase s a 0 in
     let erase1, s = erase s b 1 in
     if erase0 && erase1 then true, S.add e s

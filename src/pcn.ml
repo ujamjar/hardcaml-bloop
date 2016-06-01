@@ -330,11 +330,11 @@ let build e =
     | T -> Cubelist.zero
     | F -> Cubelist.one n_vars
     | Var _ as x -> Cubelist.of_list [Cube.single_var_true n_vars (M.find x vars)]
-    | Not(Var _ as x) -> Cubelist.of_list [Cube.single_var_compl n_vars (M.find x vars)]
-    | Not(a) -> Calculator.not_ (build a)
-    | And(a,b) -> Calculator.and_ (build a) (build b)
-    | Or(a,b) -> Calculator.or_ (build a) (build b)
-    | Xor(a,b) -> build Expr.((~: a &: b) |: (a &: ~: b))
+    | Not(_,(Var _ as x)) -> Cubelist.of_list [Cube.single_var_compl n_vars (M.find x vars)]
+    | Not(_,a) -> Calculator.not_ (build a)
+    | And(_,a,b) -> Calculator.and_ (build a) (build b)
+    | Or(_,a,b) -> Calculator.or_ (build a) (build b)
+    | Xor(_,a,b) -> build Expr.((~: a &: b) |: (a &: ~: b))
   in
   build e, vars
 

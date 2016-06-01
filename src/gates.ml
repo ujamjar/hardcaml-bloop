@@ -15,7 +15,7 @@ module Basic_bits_opt = struct
     (*| a, b when a=b -> a
     | Not(a),b when a=b -> F
     | a,Not(b) when a=b -> F*)
-    | _ -> And(a,b)
+    | _ -> And(id(),a,b)
 
   let (|.) a b = 
     let open Expr in
@@ -27,30 +27,24 @@ module Basic_bits_opt = struct
     (*| a, b when a=b -> a
     | Not(a),b when a=b -> T
     | a,Not(b) when a=b -> T*)
-    | _ -> Or(a,b)
+    | _ -> Or(id(),a,b)
 
   let (~.) a = 
     let open Expr in
     match a with
     | F -> T
     | T -> F
-    | Not(a) -> a 
-    | _ -> Not a
+    | Not(_,a) -> a 
+    | _ -> Not(id(),a)
 
   let (^.) a b = 
     let open Expr in
-    (*
-        0 0 : 0
-        0 1 : 1
-        1 0 : 1
-        1 1 : 0
-     *)
     match a, b with
     | _, F -> a
     | F, _ -> b
-    | _, T -> Not a
-    | T, _ -> Not b
-    | _ -> Xor(a,b)
+    | _, T -> ~. a
+    | T, _ -> ~. b
+    | _ -> Xor(id(),a,b)
 
 end
 
@@ -58,18 +52,18 @@ module Basic_bits = struct
   (* basic bit operators (no optimisation) *) 
   open Expr
 
-  let (&.) a b = And(a,b)
+  let (&.) a b = And(id(),a,b)
 
-  let (|.) a b = Or(a,b)
+  let (|.) a b = Or(id(),a,b)
 
-  let (~.) a = Not a
+  let (~.) a = Not(id(),a)
 
-  let (^.) a b = Xor(a,b)
+  let (^.) a b = Xor(id(),a,b)
 
 end
 
 include Basic_bits_opt
-(*let (^.) a b = ((~. a) &. b) |. (a &. (~. b))*)
+let (^.) a b = ((~. a) &. b) |. (a &. (~. b))
 
 module Base = struct
   
@@ -209,7 +203,8 @@ end
 
 module Comb = struct
   include HardCaml.Comb.Make(Base)
-  let input name bits = Array.init bits (fun i -> Expr.Var(name, (bits-i-1))) |> Array.to_list
+  let input name bits = Array.init bits 
+    (fun i -> Expr.Var(Expr.id(), name, (bits-i-1))) |> Array.to_list
 
   let forall x f = 
     let forall_f f = List.fold_right Expr.forall x f in
@@ -219,7 +214,12 @@ module Comb = struct
     let exists_f f = List.fold_right Expr.exists x f in
     List.map exists_f f
 
-  let counts s = List.fold_left Expr.(fun t x -> add_counts t @@ counts x) Expr.zero_counts s
+  let counts set s = 
+    let f (s,t) x =
+      let s, t' = Expr.counts set x in
+      s, Expr.add_counts t t'
+    in
+    List.fold_left f (set,Expr.zero_counts) s
 
 end
 
@@ -250,6 +250,11 @@ module Tseitin = struct
   let bxor z a b = 
     [ [- z; - a; - b]; [- z; a; b]; [z; - a; b]; [z; a; - b] ]
 
+  module Vmap = Map.Make(struct
+    type t = int
+    let compare (a:int) (b:int) = compare a b
+  end)
+
   type cnf_term = int list list
   type cnf_terms = 
     | Var of int
@@ -259,78 +264,61 @@ module Tseitin = struct
     {
       nterms : int;
       terms : cnf_terms;
-      vars : (int, Expr.t) Hashtbl.t;
+      top_term : int; (* probably always 1? *)
+      vars : Expr.t Vmap.t;
     }
 
-  let rec of_expr sharing hashes vars new_idx e = 
-    let of_expr = of_expr sharing hashes vars in
+  let rec of_expr map vars new_idx e = 
+    match Expr.Umap.find Expr.(uid e) map with
+    | _ as id -> map, vars, id, Ref id
+    | exception Not_found -> begin
+      let id = new_idx () in
+      let map = Expr.Umap.add (Expr.uid e) id map in
+      let const f = map, vars, id, Term(f id, []) in
+      let bnot x = 
+        let map, vars, eid, ecnf = of_expr map vars new_idx x in
+        map, vars, id, Term( bnot id eid, [ecnf] )
+      in
+      let var e = 
+        map, Vmap.add id e vars, id, Var id
+      in
+      let binary f a b =
+        let map, vars, aid, acnf = of_expr map vars new_idx a in
+        let map, vars, bid, bcnf = of_expr map vars new_idx b in
+        map, vars, id, Term(f id [aid; bid], [acnf; bcnf])
+      in
+      let bxor a b =
+        let map, vars, aid, acnf = of_expr map vars new_idx a in
+        let map, vars, bid, bcnf = of_expr map vars new_idx b in
+        map, vars, id, Term(bxor id aid bid, [acnf; bcnf])
+      in
 
-    (* hash check for sharing.  Vars are always checked *)
-    let always_check_hash e f =
-      match Hashtbl.find hashes e with
-      | _ as x -> x, Ref x
-      | exception Not_found ->
-        let id = new_idx () in
-        let cnf = f id in
-        Hashtbl.add hashes e id;
-        id, cnf
-    in
+      match e with
+      | Expr.T -> const btrue 
+      | Expr.F -> const bfalse 
+      | Expr.Var _ -> var e
 
-    let check_hash e f = 
-      if sharing then always_check_hash e f
-      else
-        let id = new_idx () in
-        let cnf = f id in
-        id, cnf
-    in
+      (*| Expr.Not(Expr.And(e0, e1)) -> binary e bnand e0 e1
+      | Expr.Not(Expr.Or(e0, e1)) -> binary e bnor e0 e1*)
+      | Expr.And(_, e0, e1) -> binary band e0 e1
+      | Expr.Or(_, e0, e1) -> binary bor e0 e1
+      | Expr.Xor(_, e0, e1) -> bxor e0 e1
+      | Expr.Not(_, e0) -> bnot e0
+    end
 
-    let const e f = check_hash e (fun id -> Term(f id, [])) in
-    let var e = 
-      always_check_hash e (fun id -> Hashtbl.add vars id e; Var id) 
-    in
-    let bnot e x = 
-      let eid, ecnf = of_expr new_idx x in
-      check_hash e (fun uid -> Term( bnot uid eid, [ecnf] ))
-    in
-    let binary e f a b =
-      let aid, acnf = of_expr new_idx a in
-      let bid, bcnf = of_expr new_idx b in
-      check_hash e (fun uid -> Term(f uid [aid; bid], [acnf; bcnf]))
-    in
-    let bxor e a b =
-      let aid, acnf = of_expr new_idx a in
-      let bid, bcnf = of_expr new_idx b in
-      check_hash e (fun uid -> Term(bxor uid aid bid, [acnf; bcnf]))
-    in
-
-    match e with
-    | Expr.T -> const e btrue 
-    | Expr.F -> const e bfalse 
-    | Expr.Var _ -> var e
-
-    (*| Expr.Not(Expr.And(e0, e1)) -> binary e bnand e0 e1
-    | Expr.Not(Expr.Or(e0, e1)) -> binary e bnor e0 e1*)
-    | Expr.And(e0, e1) -> binary e band e0 e1
-    | Expr.Or(e0, e1) -> binary e bor e0 e1
-    | Expr.Xor(e0,e1) -> bxor e e0 e1
-    | Expr.Not(e0) -> bnot e e0
-
-  let of_expr ?(sharing=true) e = 
+  let of_expr e = 
     let idx = ref 0 in
     let new_idx () = incr idx; !idx in (* 1... *)
-    let hashes = 
-      if sharing then Hashtbl.create (1024*1024) 
-      else Hashtbl.create 1024
-    in
-    let vars = Hashtbl.create 1024 in
-    let _, terms = of_expr sharing hashes vars new_idx e in
+    let map,vars = Expr.Umap.empty, Vmap.empty in
+    let _, vars, top_term, terms = of_expr map vars new_idx e in
     {
       nterms = !idx;
       terms;
+      top_term;
       vars;
     }
 
-  let of_signal ?(sharing=true) = List.map (of_expr ~sharing)
+  let of_signal = List.map of_expr 
 
 end
 
@@ -449,12 +437,12 @@ module Consistency = struct
     | Expr.Var _ -> { (var e) with input_vars = Svar.singleton e }
     (*| Expr.Not(Expr.Var _) -> { (var e) with input_vars = Svar.singleton e }*)
 
-    | Expr.Not(Expr.And(e0, e1)) -> op2 bnand e0 e1
-    | Expr.Not(Expr.Or(e0, e1)) -> op2 bnor e0 e1
-    | Expr.And(e0, e1) -> op2 band e0 e1
-    | Expr.Or(e0, e1) -> op2 bor e0 e1
-    | Expr.Xor(e0,e1) -> op2 bxor e0 e1
-    | Expr.Not(e) -> op1 bnot e 
+    | Expr.Not(_, Expr.And(_, e0, e1)) -> op2 bnand e0 e1
+    | Expr.Not(_, Expr.Or(_, e0, e1)) -> op2 bnor e0 e1
+    | Expr.And(_, e0, e1) -> op2 band e0 e1
+    | Expr.Or(_, e0, e1) -> op2 bor e0 e1
+    | Expr.Xor(_, e0,e1) -> op2 bxor e0 e1
+    | Expr.Not(_, e) -> op1 bnot e 
 
   let remove_constants e = 
     let vt = Svar.singleton Expr.T in
@@ -488,8 +476,8 @@ module Consistency = struct
             match v with
             | Expr.T -> "1" :: l
             | Expr.F -> "0" :: l
-            | Expr.Var(n,i) -> (n ^ string_of_int i) :: l
-            | Expr.Not(Expr.Var(n,i)) -> (n ^ string_of_int i ^ "'") :: l
+            | Expr.Var(_, n,i) -> (n ^ string_of_int i) :: l
+            | Expr.Not(_, Expr.Var(_,n,i)) -> (n ^ string_of_int i ^ "'") :: l
             | _ -> failwith "Consistency.to_string")
           s []
         in
