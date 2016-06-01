@@ -1,0 +1,27 @@
+opam-version: "1.2"
+maintainer: "andy.ray@ujamjar.com"
+authors: "andy.ray@ujamjar.com"
+homepage: "https://github.com/ujamjar/hardcaml-bloop"
+dev-repo: "https://github.com/ujamjar/hardcaml-bloop"
+bug-reports: "https://github.com/ujamjar/hardcaml-bloop/issues"
+build: [
+  [make "all"]
+]
+install: [
+  [make "install"]
+]
+remove: [
+  [make "uninstall"]
+]
+depends: [
+  "ocamlfind"
+  "base-bytes"
+  "camlp4"
+  "hardcaml"
+  "minisat"
+  "bdd"
+  "uutf"
+  "gg"
+  "vg"
+]
+available: [ "ocaml-version" >= "4.01.0" ]
