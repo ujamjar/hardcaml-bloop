@@ -170,8 +170,8 @@ module Dimacs_solver = struct
           read_result_lines ()
       in
       close_in f;
-      (*Unix.unlink fin;
-      Unix.unlink fout;*)
+      Unix.unlink fin;
+      Unix.unlink fout;
       result
 
     method model i : [`t|`f|`u] = 
