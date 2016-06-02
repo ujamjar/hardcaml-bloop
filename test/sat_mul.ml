@@ -20,7 +20,7 @@ let () = Arg.parse
 let verbose = !verbose
 let solver = 
   match !solver with
-  | "minisat" | "mini" -> `minisat
+  | "minisat" | "mini" -> `mini
   | "crypto" | "cryptominisat" -> `crypto
   | _ -> failwith "invalid solver"
 

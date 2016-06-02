@@ -4,7 +4,11 @@
 type model = Expr.t * int * [ `t | `f | `u ]
 type next_sat_result = unit -> sat_result
 and  sat_result = [ `sat of model list * next_sat_result | `unsat ]
-type solver = [ `crypto | `minisat ]
+type solver = [ 
+  | `crypto 
+  | `mini
+  | `dimacs of [ `crypto | `mini | `pico ]
+]
 
 (** run solver on a boolean expression.
  

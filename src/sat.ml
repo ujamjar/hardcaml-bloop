@@ -5,7 +5,11 @@ module M = Map.Make(struct type t = Expr.t let compare = compare end)
 type model = Expr.t * int * [ `t | `f | `u ]
 type next_sat_result = unit -> sat_result
 and  sat_result = [ `sat of model list * next_sat_result | `unsat ]
-type solver = [ `crypto | `minisat ]
+type solver = [ 
+  | `crypto 
+  | `mini
+  | `dimacs of [ `crypto | `mini | `pico ]
+]
 
 let time verbose = 
   if verbose then
@@ -25,7 +29,7 @@ module Minisat_solver = struct
     val solver = new solver
     val mutable vars = [||]
     method init_vars nterms = vars <- Array.init nterms (fun _ -> solver#new_var)
-    method get_var i = 
+    method private get_var i = 
       if i>0 then pos_lit vars.(i-1) 
       else neg_lit vars.((-i)-1)
     method add_clause c = solver#add_clause (List.map (self#get_var) c)
@@ -45,7 +49,6 @@ end
 module Cryptominisat_solver = struct
   open Cryptominisat 
   class t = 
-    let solver = Cryptominisat.L.create () in
     let vec_of_lits v l = 
       L.Vec.clear v;
       List.iter 
@@ -57,14 +60,14 @@ module Cryptominisat_solver = struct
         l
     in
     let vec = L.Vec.create () in
-    let add_clause c = 
+    let add_clause solver c = 
       vec_of_lits vec c;
       L.add_clause solver vec
     in
   object(self)
+    val solver = Cryptominisat.L.create () 
     method init_vars nterms = Cryptominisat.L.new_vars solver nterms
-    method get_var (i:int) = i
-    method add_clause c = add_clause c
+    method add_clause c = add_clause solver c
     method solve : [`sat|`unsat] = 
       match L.solve solver with
       | T -> `sat
@@ -79,17 +82,122 @@ module Cryptominisat_solver = struct
   end
 end
 
-let make_solver ?(solver=`minisat) ?(verbose=false) s = 
+module Dimacs_solver = struct
+
+  class t solver = object(self)
+    val mutable nterms = 0
+    val mutable nclauses = 0
+    val mutable clauses : int list list = []
+    val mutable model : int list = []
+
+    method init_vars n = nterms <- n
+    method add_clause c =
+      nclauses <- nclauses + 1;
+      clauses <- c :: clauses
+
+    method solve : [`sat|`unsat] = 
+      let open Printf in
+
+      (* clear the model *)
+      model <- [];
+
+      let solver_name = 
+        match solver with
+        | `crypto -> "cryptominisat4_simple"
+        | `mini -> "minisat"
+        | `pico -> "picosat"
+      in
+
+      (* write cnf *)
+      let fin = Filename.temp_file "sat_in_" solver_name in
+      let f = open_out fin in
+      fprintf f "p cnf %i %i\n" nterms nclauses;
+      List.iter (fun term -> 
+        List.iter (fun lit -> fprintf f "%i " lit) term;
+        fprintf f "0\n") clauses;
+      close_out f;
+      
+      (* output file *)
+      let fout = Filename.temp_file "sat_out_" solver_name in
+      let () = 
+        match solver with 
+        | `crypto -> 
+          ignore @@ Unix.system(sprintf "%s --verb=0 %s > %s" solver_name fin fout)
+        | `mini -> 
+          ignore @@ Unix.system(sprintf "%s -verb=0 %s %s" solver_name fin fout)
+        | `pico -> 
+          ignore @@ Unix.system(sprintf "%s %s > %s" solver_name fin fout)
+      in
+
+      (* read output file *)
+      let f = open_in fout in
+      let result = 
+        match input_line f with
+        | "SATISFIABLE" | "SAT" | "s SATISFIABLE" -> `sat
+        | "UNSATISFIABLE" | "UNSAT" | "s UNSATISFIABLE" -> `unsat
+        | _ -> failwith "DIMACS bad output"
+        | exception _ -> failwith "DIMACS bad output"
+      in
+      let () = 
+        if result = `sat then 
+          let split_char sep str =
+            let rec indices acc i =
+              try
+                let i = succ(String.index_from str i sep) in
+                indices (i::acc) i
+              with Not_found -> (String.length str + 1) :: acc
+            in
+            let is = indices [0] 0 in
+            let rec aux acc = function
+              | last::start::tl ->
+                  let w = String.sub str start (last-start-1) in
+                  aux (w::acc) (start::tl)
+              | _ -> acc
+            in
+            aux [] is 
+          in
+          let rec read_result_lines () = 
+            match input_line f with
+            | _ as line -> 
+              let tokens = List.filter ((<>) "") @@ split_char ' ' line in
+              (match tokens with
+              | "v" :: tl -> model <- List.map int_of_string tl @ model
+              | _ as l -> model <- List.map int_of_string l @ model);
+              read_result_lines ()
+            | exception _ ->
+              ()
+          in
+          read_result_lines ()
+      in
+      close_in f;
+      (*Unix.unlink fin;
+      Unix.unlink fout;*)
+      result
+
+    method model i : [`t|`f|`u] = 
+      if i <= 0 then `u
+      else if List.mem i model then `t
+      else if List.mem (-i) model then `f
+      else `u
+
+    method print_stats = ()
+
+  end
+
+end
+
+let make_solver ?(solver=`mini) ?(verbose=false) s = 
     let open Gates.Tseitin in
     let cnf = time verbose "tseitin" of_expr s in
     let satsolver = 
       match solver with
       | `crypto -> new Cryptominisat_solver.t
-      | `minisat -> new Minisat_solver.t
+      | `mini -> new Minisat_solver.t
+      | `dimacs(s) -> new Dimacs_solver.t s
     in
     let () = time verbose "init vars" satsolver#init_vars cnf.nterms in
     let rec clauses = function
-      | Var _ (*id -> sat#add_clause [ get_var id ]*)
+      | Var _ 
       | Ref _ -> ()
       | Term(x,a) ->
         List.iter satsolver#add_clause x;
@@ -99,7 +207,7 @@ let make_solver ?(solver=`minisat) ?(verbose=false) s =
     let () = satsolver#add_clause [ cnf.top_term ] in
     cnf.vars, satsolver
 
-let of_expr ?(solver=`minisat) ?(verbose=false) s = 
+let of_expr ?(solver=`mini) ?(verbose=false) s = 
   let inputs, satsolver = make_solver ~solver ~verbose s in
   let get_soln_value idx = 
     match satsolver#model idx with
@@ -136,7 +244,7 @@ let of_expr ?(solver=`minisat) ?(verbose=false) s =
   in
   next [] ()
 
-let of_signal ?(solver=`minisat) ?(verbose=false) s = 
+let of_signal ?(solver=`mini) ?(verbose=false) s = 
   if Gates.Comb.width s <> 1 then raise Sat_signal_width_not_1
   else of_expr ~solver ~verbose (List.hd s)
 
