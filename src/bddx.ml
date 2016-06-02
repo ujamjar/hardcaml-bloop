@@ -23,7 +23,7 @@ let rec build vars = function
   | Not(_,a) -> Bdd.mk_not (build vars a)
   | Or(_,a,b) -> Bdd.mk_or (build vars a) (build vars b)
   | And(_,a,b) -> Bdd.mk_and (build vars a) (build vars b)
-  | Xor(_,a,b) -> build vars Gates.(((~. a) &. b) |. (a &. (~. b)))
+  | Xor(_,a,b) -> build vars Gates.Basic_gates_opt.(((~. a) &. b) |. (a &. (~. b)))
 
 (* create bdd from Expr.t *)
 let of_expr vars e = 

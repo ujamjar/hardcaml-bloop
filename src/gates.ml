@@ -1,7 +1,65 @@
 open HardCaml
 
+module type Basic_gates = sig
+  open Expr
+  val (&.) : t -> t -> t
+  val (|.) : t -> t -> t
+  val (~.) : t -> t
+  val (^.) : t -> t -> t
+end
 
-module Basic_bits_opt = struct
+module Basic_gates = struct
+  (* basic bit operators (no optimisation) *) 
+  open Expr
+
+  let (&.) a b = And(id(),a,b)
+
+  let (|.) a b = Or(id(),a,b)
+
+  let (~.) a = Not(id(),a)
+
+  let (^.) a b = Xor(id(),a,b)
+
+end
+
+module Basic_gates_simple_opt = struct
+  (* basic bit operators that optimise based on their arguments *)
+  open Expr
+
+  let (&.) a b = 
+    let open Expr in
+    match a, b with
+    | _, T -> a
+    | T, _ -> b
+    | _ -> And(id(),a,b)
+
+  let (|.) a b = 
+    let open Expr in
+    match a, b with
+    | _, F -> a
+    | F, _ -> b
+    | _ -> Or(id(),a,b)
+
+  let (~.) a = 
+    let open Expr in
+    match a with
+    | F -> T
+    | T -> F
+    | Not(_,a) -> a 
+    | _ -> Not(id(),a)
+
+  let (^.) a b = 
+    let open Expr in
+    match a, b with
+    | _, F -> a
+    | F, _ -> b
+    | _, T -> ~. a
+    | T, _ -> ~. b
+    | _ -> Xor(id(),a,b)
+
+end
+
+module Basic_gates_opt = struct
   (* basic bit operators that optimise based on their arguments *)
   open Expr
 
@@ -48,25 +106,13 @@ module Basic_bits_opt = struct
 
 end
 
-module Basic_bits = struct
-  (* basic bit operators (no optimisation) *) 
-  open Expr
-
-  let (&.) a b = And(id(),a,b)
-
-  let (|.) a b = Or(id(),a,b)
-
-  let (~.) a = Not(id(),a)
-
-  let (^.) a b = Xor(id(),a,b)
-
+module Basic_gates_derive_xor(Basic_gates : Basic_gates) = struct
+  include Basic_gates
+  let (^.) a b = ((~. a) &. b) |. (a &. (~. b))
 end
 
-include Basic_bits_opt
-let (^.) a b = ((~. a) &. b) |. (a &. (~. b))
-
-module Base = struct
-  
+module Base(Basic_gates : Basic_gates) = struct
+  open Basic_gates
   open List
 
   (* combinatorial API implemented using 'simple' gates *)
@@ -201,8 +247,15 @@ module Base = struct
 
 end
 
-module Comb = struct
-  include HardCaml.Comb.Make(Base)
+module type Comb = sig
+  include HardCaml.Comb.S with type t = Expr.t list
+  val forall : t -> t -> t
+  val exists : t -> t -> t
+  val counts : Expr.Uset.t -> t -> Expr.Uset.t * Expr.counts
+end
+
+module Make_comb(Basic_gates : Basic_gates) = struct
+  include HardCaml.Comb.Make(Base(Basic_gates))
   let input name bits = Array.init bits 
     (fun i -> Expr.Var(Expr.id(), name, (bits-i-1))) |> Array.to_list
 
@@ -222,6 +275,8 @@ module Comb = struct
     List.fold_left f (set,Expr.zero_counts) s
 
 end
+
+module Comb = Make_comb(Basic_gates_opt)
 
 module Tseitin = struct
 
@@ -323,6 +378,8 @@ module Tseitin = struct
 end
 
 module Consistency = struct
+
+  include Basic_gates_opt
 
   module Svar = Set.Make(struct type t = Expr.t let compare = compare end)
   module Sexpr = Set.Make(struct type t = Svar.t let compare = compare end)

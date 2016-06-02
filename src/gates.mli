@@ -1,17 +1,40 @@
+(** {2 Basic gates} *)
+
+module type Basic_gates = sig
+  open Expr
+  val (&.) : t -> t -> t
+  val (|.) : t -> t -> t
+  val (~.) : t -> t
+  val (^.) : t -> t -> t
+end
+
+(** Simple representation of basic and, or, xor and not gates *)
+module Basic_gates : Basic_gates
+
+(** Basic optimisation, but dont allow variables to disappear *)
+module Basic_gates_simple_opt : Basic_gates
+
+(** Basic optimisations *)
+module Basic_gates_opt : Basic_gates
+
+(** Replace xor basic gate with boolean equation *)
+module Basic_gates_derive_xor(Basic_gates : Basic_gates) : Basic_gates
+
 (** {2 Combinatorial APi} *)
 
-val (&.) : Expr.t -> Expr.t -> Expr.t 
-val (|.) : Expr.t -> Expr.t -> Expr.t 
-val (^.) : Expr.t -> Expr.t -> Expr.t 
-val (~.) : Expr.t -> Expr.t 
-
-(** combinatorial API implemented over Expr.t *)
-module Comb : sig 
+(** Combinatorial API implemented over Expr.t *)
+module type Comb = sig
   include HardCaml.Comb.S with type t = Expr.t list
   val forall : t -> t -> t
   val exists : t -> t -> t
   val counts : Expr.Uset.t -> t -> Expr.Uset.t * Expr.counts
 end
+
+(** Build combinatorial API from [Basic_gates] *)
+module Make_comb(Basic_gates : Basic_gates) : Comb
+
+(** Combbinatorial API built with [Basic_gates_opt] *)
+module Comb : Comb
 
 (** {2 Tseitin cnf conversion} *)
 
@@ -50,19 +73,12 @@ module Tseitin : sig
   val of_expr : Expr.t -> t
 
   (** Convert a signal to cnf.  Each bit is a seperate cnf expression *)
-  val of_signal : Comb.t -> t list 
+  val of_signal : Expr.t list -> t list 
 
 end
 
 (** {2 Depreciated Tseitin cnf conversion.  Very slow} *)
 
-(** *OLD AND SLOW* use the Tseitin module instead
- 
-    Convert boolean expressionn to product-of-sums form using
-    consistency functions.  Such expressions have the same
-    satisfiability but are not strictly equal.  Unlike the 
-    conversions in Sop and Pos the expansion is linear rather
-    than exponential *)
 module Consistency : sig
   module Svar : (Set.S with type elt = Expr.t)
   module Sexpr : (Set.S with type elt = Svar.t)
@@ -90,7 +106,7 @@ module Consistency : sig
   val to_sexpr : Expr.t list list -> Sexpr.t
 
   val of_expr : Expr.t -> t 
-  val of_signal : Comb.t -> t list 
+  val of_signal : Expr.t list -> t list 
 
   val to_string : t -> string
 

@@ -34,6 +34,7 @@ module S : Set.S with type elt = t
 (** map of exprs *)
 module M : Map.S with type key = t
 
+(** count gates *)
 type counts = 
   {
     consts : int;
@@ -49,6 +50,9 @@ val counts : Uset.t -> t -> Uset.t * counts
 val zero_counts : counts
 val add_counts : counts -> counts -> counts
 val print_counts : out_channel -> counts -> unit
+
+(* estimate cost as total number of gate inputs *)
+val cost : counts -> int
 
 (** convert to string *)
 val string_of_t : t -> string

@@ -130,8 +130,7 @@ module Example = struct
   let expand_cube f' c = ()
 
   let expand f = 
-    let f' = Pcn.(~: f) in
-
+    (*let f' = Pcn.(~: f) in*)
     ()
 
 end

@@ -61,33 +61,7 @@ type counts =
     ands : int;
     lookups : int;
   }
-(*
-let counts e = 
-  let consts = ref 0 in
-  let vars = ref 0 in
-  let nots = ref 0 in
-  let ors = ref 0 in
-  let xors = ref 0 in
-  let ands = ref 0 in
-  let rec f = function
-    | T | F -> incr consts
-    | Var _ -> incr vars
-    | Not(a) -> incr nots; f a
-    | Or(a,b) -> incr ors; f a; f b
-    | Xor(a,b) -> incr xors; f a; f b
-    | And(a,b) -> incr ands; f a; f b
-  in 
-  f e;
-  {
-    consts = !consts;
-    vars = !vars;
-    nots = !nots;
-    ors = !ors;
-    xors = !xors;
-    ands = !ands;
-    lookups = 0;
-  }
-*)
+
 let counts set e = 
   let consts = ref 0 in
   let vars = ref 0 in
@@ -153,6 +127,9 @@ ands = %i
 lookups = %i
 " 
   a.consts a.vars a.nots a.ors a.xors a.ands a.lookups
+
+let cost a = 
+  (2 * (a.ors + a.xors + a.ands)) + a.nots + a.vars
 
 let string_of_t' var_ not_ xor_ b = 
   let rec f level b = 
