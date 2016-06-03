@@ -2,9 +2,10 @@
 
 module M = Map.Make(struct type t = Expr.t let compare = compare end)
 
-type model = Expr.t * int * [ `t | `f | `u ]
+type result = [ `t | `f | `u ]
+type vec_result = string * result array
 type next_sat_result = unit -> sat_result
-and  sat_result = [ `sat of model list * next_sat_result | `unsat ]
+and  sat_result = [ `sat of vec_result list * next_sat_result | `unsat ]
 type solver = [ 
   | `crypto 
   | `mini
@@ -37,7 +38,7 @@ module Minisat_solver = struct
       match solver#solve with
       | SAT -> `sat
       | UNSAT -> `unsat
-    method model i : [`t|`f|`u] = 
+    method model i : result = 
       match solver#value_of vars.(i-1) with
       | True -> `t
       | False -> `f 
@@ -73,12 +74,13 @@ module Cryptominisat_solver = struct
       | T -> `sat
       | F -> `unsat
       | U -> failwith "cryptominisat failed"
-    method model idx : [`t|`f|`u] = 
+    method model idx : result = 
       match L.get_model solver (idx-1) with
       | T -> `t
       | F -> `f 
       | U -> `u
     method print_stats = L.print_stats solver
+    initializer Gc.finalise Cryptominisat.L.destroy solver
   end
 end
 
@@ -174,7 +176,7 @@ module Dimacs_solver = struct
       Unix.unlink fout;
       result
 
-    method model i : [`t|`f|`u] = 
+    method model i : result = 
       if i <= 0 then `u
       else if List.mem i model then `t
       else if List.mem (-i) model then `f
@@ -206,6 +208,37 @@ let make_solver ?(solver=`mini) ?(verbose=false) s =
     let () = time verbose "clauses" clauses cnf.terms in
     let () = satsolver#add_clause [ cnf.top_term ] in
     cnf.vars, satsolver
+
+let soln_vecs x = 
+  let error () = failwith "report error" in
+  let rec sort l = 
+    match l with
+    | [] -> []
+    | (Expr.Var(_,n,_),_,_) :: _ ->
+        let x,y = 
+          List.partition 
+            (function (Expr.Var(_,n',_),_,_) when n=n' -> true | _ -> false)
+            l
+        in
+        x :: sort y
+    | _ -> error ()
+  in
+  let compare i j = 
+    match i,j with
+    | (Expr.Var(_,_,i),_,_), (Expr.Var(_,_,j),_,_) -> - (compare i j) 
+    | _ -> error ()
+  in
+  let f = List.map (List.sort compare) @@ sort x in
+  let vec x = 
+    match x with
+    | [] -> "unknown", [||]
+    | (Expr.Var(_,n,i),_,_) :: _ -> 
+        let a = Array.init (i+1) (fun _ -> `u) in
+        List.iter (function (Expr.Var(_,_,i),_,v) -> a.(i) <- v | _ -> error()) x;
+        n, a
+    | _ -> error()
+  in
+  List.map vec f 
 
 let of_expr ?(solver=`mini) ?(verbose=false) s = 
   let inputs, satsolver = make_solver ~solver ~verbose s in
@@ -239,7 +272,7 @@ let of_expr ?(solver=`mini) ?(verbose=false) s =
     match soln with
     | `sat ->
       let soln = get_soln () in
-      `sat (soln, next soln)
+      `sat (soln_vecs soln, next soln)
     | `unsat -> `unsat
   in
   next [] ()
@@ -250,48 +283,18 @@ let of_signal ?(solver=`mini) ?(verbose=false) s =
 
 open Printf
 
-let report_soln x = 
-  let error () = failwith "report error" in
-  let rec sort l = 
-    match l with
-    | [] -> []
-    | (Expr.Var(_,n,_),_,_) :: _ ->
-        let x,y = 
-          List.partition 
-            (function (Expr.Var(_,n',_),_,_) when n=n' -> true | _ -> false)
-            l
-        in
-        x :: sort y
-    | _ -> error ()
-  in
-  let compare i j = 
-    match i,j with
-    | (Expr.Var(_,_,i),_,_), (Expr.Var(_,_,j),_,_) -> - (compare i j) 
-    | _ -> error ()
-  in
-  let f = List.map (List.sort compare) @@ sort x in
-  let vec x = 
-    match x with
-    | [] -> "unknown", [||]
-    | (Expr.Var(_,n,i),_,_) :: _ -> 
-        let a = Array.init (i+1) (fun _ -> `u) in
-        List.iter (function (Expr.Var(_,_,i),_,v) -> a.(i) <- v | _ -> error()) x;
-        n, a
-    | _ -> error()
-  in
-  let vecs = List.map vec f in
-  List.iter 
-    (fun (n,a) ->
-      printf "%s: " n;
-      for i=Array.length a - 1 downto 0 do
-        printf "%c"
-          (match a.(i) with
-          | `t -> '1'
-          | `f -> '0'
-          | `u -> '_')
-      done;
-      printf "\n")
-    vecs
+let string_of_vec_result ?(unknown='_') (n, v) = 
+  let len = Array.length v in
+  String.init len 
+    (fun i -> 
+      match v.(len-i-1) with
+      | `t -> '1'
+      | `f -> '0'
+      | `u -> unknown)
+
+
+let report_soln vecs = 
+  List.iter (fun (n,a) -> printf "%s: %s\n" n (string_of_vec_result (n,a))) vecs
 
 let report = function
   | `unsat -> printf "UNSAT\n"
@@ -343,14 +346,16 @@ module Old = struct
       let () = sat#print_stats in
 
       match time true "solve" (fun () -> sat#solve) () with
-      | SAT -> `sat 
-          ((Svar.fold (fun v l -> 
+      | SAT -> 
+        let soln = 
+          Svar.fold (fun v l -> 
             (v, 0,
               (match sat#value_of (M.find v var_map) with
               | True -> `t
               | False -> `f
-              | Unknown -> `u)) :: l) cons.input_vars []), 
-          (fun () -> failwith "not implemented"))
+              | Unknown -> `u)) :: l) cons.input_vars []
+        in
+        `sat ( soln_vecs soln, (fun () -> failwith "not implemented"))
       | UNSAT -> `unsat 
 
   let of_signal ?(cleaner=false) s = 
