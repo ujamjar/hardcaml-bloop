@@ -51,6 +51,13 @@ Executable sat_mul
   Install:            false
   BuildDepends:       hardcaml-bloop
 
+Executable sat_ban
+  Path:               test
+  MainIs:             sat_ban.ml
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       hardcaml-bloop
+
 Executable sat_repair
   Path:               test
   MainIs:             sat_repair.ml

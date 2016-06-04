@@ -29,9 +29,9 @@ let c = (((a +: b) *: (a -: b)) ==:. 3)
 
 let f a b = ((((a + b) land 15) * ((a - b) land 15)) land 255) = 3
 
-(* $ let soln = solve c;;
-   $ let soln = next ();;
-   $ let soln = next ();;
+(* $ let `sat(soln,next) = solve c;;
+   $ let `sat(soln,next) = next ();;
+   $ let `sat(soln,next) = next ();;
    ... *)
 
 let solve c = 

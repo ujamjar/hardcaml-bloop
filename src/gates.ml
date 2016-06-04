@@ -321,6 +321,7 @@ module Tseitin = struct
       terms : cnf_terms;
       top_term : int; (* probably always 1? *)
       vars : Expr.t Vmap.t;
+      map : int Expr.Umap.t;
     }
 
   let rec of_expr map vars new_idx e = 
@@ -365,12 +366,13 @@ module Tseitin = struct
     let idx = ref 0 in
     let new_idx () = incr idx; !idx in (* 1... *)
     let map,vars = Expr.Umap.empty, Vmap.empty in
-    let _, vars, top_term, terms = of_expr map vars new_idx e in
+    let map, vars, top_term, terms = of_expr map vars new_idx e in
     {
       nterms = !idx;
       terms;
       top_term;
       vars;
+      map;
     }
 
   let of_signal = List.map of_expr 

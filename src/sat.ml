@@ -23,6 +23,7 @@ let time verbose =
   else (fun _ f a -> f a)
 
 exception Sat_signal_width_not_1
+exception Sat_banned_expr_too_complex
 
 module Minisat_solver = struct
   open Minisat
@@ -207,7 +208,7 @@ let make_solver ?(solver=`mini) ?(verbose=false) s =
     in
     let () = time verbose "clauses" clauses cnf.terms in
     let () = satsolver#add_clause [ cnf.top_term ] in
-    cnf.vars, satsolver
+    cnf, satsolver
 
 let soln_vecs x = 
   let error () = failwith "report error" in
@@ -240,8 +241,37 @@ let soln_vecs x =
   in
   List.map vec f 
 
-let of_expr ?(solver=`mini) ?(verbose=false) s = 
-  let inputs, satsolver = make_solver ~solver ~verbose s in
+let of_expr ?(solver=`mini) ?(verbose=false) ?(banned=[]) s = 
+  let inputs, satsolver = 
+    let open Gates.Tseitin in
+    let cnf, satsolver = make_solver ~solver ~verbose s in
+    let add_banned_solutions () = 
+      let open Expr in
+      let f b = 
+        let rec eval e = 
+          match e with
+          | T | F | Var _ -> e
+          | And(_, e0, e1) -> Gates.Basic_gates_opt.(eval e0 &. eval e1)
+          | Or(_, e0, e1)  -> Gates.Basic_gates_opt.(eval e0 |. eval e1)
+          | Xor(_, e0, e1) -> Gates.Basic_gates_opt.(eval e0 ^. eval e1)
+          | Not(_, e0)     -> Gates.Basic_gates_opt.(~. (eval e0))
+        in
+        match eval b with
+        | T | F -> None
+        | Var(id,_,_) -> Some(- (Expr.Umap.find id cnf.map))
+        | Not(_,Var(id,_,_)) -> Some(Expr.Umap.find id cnf.map)
+        | _ -> raise Sat_banned_expr_too_complex
+      in
+      let map_f ban = 
+        List.map (function Some(x) -> x | None -> failwith "") @@ 
+        List.filter ((<>)None) @@ 
+        List.map f ban 
+      in
+      List.iter (fun ban -> satsolver#add_clause (map_f ban)) banned
+    in
+    add_banned_solutions ();
+    cnf.vars, satsolver
+  in
   let get_soln_value idx = 
     match satsolver#model idx with
     | exception _ -> `u (* if it happens? *)
@@ -277,9 +307,9 @@ let of_expr ?(solver=`mini) ?(verbose=false) s =
   in
   next [] ()
 
-let of_signal ?(solver=`mini) ?(verbose=false) s = 
+let of_signal ?(solver=`mini) ?(verbose=false) ?(banned=[]) s = 
   if Gates.Comb.width s <> 1 then raise Sat_signal_width_not_1
-  else of_expr ~solver ~verbose (List.hd s)
+  else of_expr ~solver ~verbose ~banned (List.hd s)
 
 open Printf
 

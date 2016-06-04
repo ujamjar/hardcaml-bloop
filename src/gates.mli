@@ -57,6 +57,7 @@ module Tseitin : sig
       terms : cnf_terms;
       top_term : int;
       vars : Expr.t Vmap.t;
+      map : int Expr.Umap.t;
     }
 
   (* Tseitin gate consistency functions *)

@@ -21,21 +21,33 @@ type solver = [
 (** run solver on a boolean expression.
  
     Converts the input expression to CNF form using the
-    [Tseitin] transformation with optional sharing (default true).
+    [Tseitin] transformation.
 
     Returns `unsat if no assignment to the input variables could
-    be found that makes the result 1.
+    be found that makes the result true.
 
     Otherwise returns `sat with a solution for the input variables and
     a function to find the next solution.
+
+    Specific solutions can be banned by providing and expression which should
+    evaluate to [var] or [~: var].  Overly complex expressions (those which
+    can't be constant optimised to the required form) will raise an 
+    exception.  For convenience, expressions resulting in T or F will be ignored.
  *)
-val of_expr : ?solver:solver -> ?verbose:bool -> Expr.t -> sat_result
+val of_expr : ?solver:solver -> ?verbose:bool -> ?banned:Expr.t list list -> 
+  Expr.t -> sat_result
 
 exception Sat_signal_width_not_1
+exception Sat_banned_expr_too_complex
 
 (** run the solver on a signal.  Raises [Sat_signal_width_not_1] if the signal
-    is not 1 bit wide. *)
-val of_signal : ?solver:solver -> ?verbose:bool -> Gates.Comb.t -> sat_result
+    is not 1 bit wide. 
+
+    To ban an input variable from taking a particular value use an expression
+    like [~: (a ^:. 23)].
+*)
+val of_signal : ?solver:solver -> ?verbose:bool -> ?banned:Gates.Comb.t list ->
+  Gates.Comb.t -> sat_result
 
 (** convert result to a string *)
 val string_of_vec_result : ?unknown:char -> vec_result -> string
