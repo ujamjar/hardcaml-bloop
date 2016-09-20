@@ -19,6 +19,7 @@ depends: [
   "camlp4"
   "hardcaml"
   "minisat"
+  "cryptominisat"
   "bdd"
   "uutf"
   "gg"
