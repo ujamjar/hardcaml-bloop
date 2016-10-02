@@ -40,8 +40,7 @@ module Comb : Comb
 
 (** Uses the Tseitin transformation to convert an 
     arbitrary gate expression to conjunctive normal
-    form.
-*)
+    form.  *)
 module Tseitin : sig
 
   module Vmap : Map.S with type key = int
@@ -75,43 +74,6 @@ module Tseitin : sig
 
   (** Convert a signal to cnf.  Each bit is a seperate cnf expression *)
   val of_signal : Expr.t list -> t list 
-
-end
-
-(** {2 Depreciated Tseitin cnf conversion.  Very slow} *)
-
-module Consistency : sig
-  module Svar : (Set.S with type elt = Expr.t)
-  module Sexpr : (Set.S with type elt = Svar.t)
-  type t = 
-    {
-      input_vars : Svar.t;
-      temp_vars : Svar.t;
-      exprs : Sexpr.t;
-      out_var : Expr.t;
-    }
-  type temp_var = unit -> Expr.t
-  val temp_var : unit -> Expr.t
-
-  val btrue : Expr.t -> Expr.t list list
-  val bfalse : Expr.t -> Expr.t list list
-  (*val bwire : Expr.t -> Expr.t -> Expr.t list list*)
-  val bnot : Expr.t -> Expr.t -> Expr.t list list
-  val bnor : Expr.t -> Expr.t list -> Expr.t list list
-  val bor : Expr.t -> Expr.t list -> Expr.t list list
-  val bnand : Expr.t -> Expr.t list -> Expr.t list list
-  val band : Expr.t -> Expr.t list -> Expr.t list list
-  val bxor : Expr.t -> Expr.t -> Expr.t -> Expr.t list list
-
-  val to_gates : Expr.t list list -> Expr.t
-  val to_sexpr : Expr.t list list -> Sexpr.t
-
-  val of_expr : Expr.t -> t 
-  val of_signal : Expr.t list -> t list 
-
-  val to_string : t -> string
-
-  val remove_constants : t -> [ `unsat | `expr of t]
 
 end
 

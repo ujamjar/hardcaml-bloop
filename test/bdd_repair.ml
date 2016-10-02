@@ -86,7 +86,7 @@ open Printf
 (* BDD *)
 let order = dynamic_weight_assignment [z_quant]
 (*let order = vars_of_signal z_quant*)
-let () = M.iter (fun v i -> printf "result: %s{%i}\n" (string_of_t v) i) order
+let () = M.iter (fun v i -> printf "result: %s{%i}\n%!" (string_of_t v) i) order
 let bdd = of_signal order z_quant
 (*let () = List.iter show bdd*)
 

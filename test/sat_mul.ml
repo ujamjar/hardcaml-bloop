@@ -7,22 +7,20 @@ open HardCamlBloop
 open Gates.Comb
 
 let verbose = ref false
-let solver = ref "minisat"
+let solver = ref "dimacs-mini"
 let max_solns = ref 100
 let () = Arg.parse 
   [
     "-v", Arg.Set verbose, "print stats";
-    "-s", Arg.Set_string solver, "choose solver (minisat* or cryptominisat)";
+    "-s", Arg.Set_string solver, "choose solver [dimacs-](mini|pico|crypto)";
     "-m", Arg.Set_int max_solns, "maximum number of solutions to find";
   ]
   (fun s -> raise (Arg.Help "invalid positional parameter"))
   "sat multiplier test"
 let verbose = !verbose
-let solver = 
-  match !solver with
-  | "minisat" | "mini" -> `mini
-  | "crypto" | "cryptominisat" -> `crypto
-  | _ -> failwith "invalid solver"
+let solver = !solver 
+let _ = if not (List.mem solver (Sattools.Libs.available_solvers())) then 
+    failwith "invalid solver"
 
 let a, b = input "a" 4, input "b" 4
 let c = (((a +: b) *: (a -: b)) ==:. 3)
