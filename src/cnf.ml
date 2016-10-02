@@ -1,155 +1,9 @@
 open HardCaml
 
-module Make(S : sig
-    type t
-    val width : t -> int
-    val const : string -> t
-    val empty : t
-    val select : t -> int -> int -> t
-    val concat : t list -> t
-    val wire : int -> t
-    val (<==) : t -> t -> unit
-    val (--) : t -> string -> t
-    val (~:) : t -> t 
-    val (&:) : t -> t -> t
-    val (|:) : t -> t -> t
-    val (^:) : t -> t -> t
-end) =
-struct
-    include S
-
-    (* utils *)
-    let vdd = const "1"
-    let gnd = const "0"
-    let bits_lsb x = 
-        let w = width x in
-        Array.to_list (Array.init w (fun i -> select x i i))
-    let bits_msb x = List.rev (bits_lsb x)
-    let reduce_bits def op a = List.fold_left op def (bits_lsb a)
-    let repeat s n = 
-        if n <= 0 then empty
-        else concat (Array.to_list (Array.init n (fun _ -> s)))
-    let concat_e l = 
-        let x = List.filter ((<>)empty) l in
-        if x = [] then empty
-        else concat x
-
-    let ripple_carry_adder cin a b =
-        let fa cin a b = 
-            let sum = (a ^: b) ^: cin in
-            let carry = (a &: b) |: (b &: cin) |: (cin &: a) in
-            sum, carry
-        in
-        let a = bits_lsb a in
-        let b = bits_lsb b in
-        let sum,_ = List.fold_left2 (fun (sum_in,carry_in) a b -> 
-            let sum,carry_out = fa carry_in a b in
-            sum::sum_in, carry_out) ([],cin) a b
-        in
-        concat sum
-
-    (** addition *)
-    let (+:) a b = ripple_carry_adder gnd a b
-    
-    (** subtraction *)
-    let (-:) a b = ripple_carry_adder vdd a (~: b) 
-    
-    (** unsigned multiplication *)
-    let ( *: ) a b = 
-        let _,r = List.fold_left (fun (i,acc) b -> 
-            let acc = concat_e [gnd; acc] in
-            let a = concat_e [ gnd ; a ; repeat gnd i ] in
-            i+1, (+:) acc ((&:) a (repeat b (width a)))
-        ) (0,(repeat gnd (width a))) (bits_lsb b) in
-        r
-    
-    (** signed multiplication *)
-    let ( *+ ) a b = 
-        let last = (width b) - 1 in
-        let msb x = select x (width x - 1) (width x -1 ) in
-        let _,r = List.fold_left (fun (i,acc) b -> 
-            let acc = concat_e [msb acc; acc] in
-            let a = concat_e [ msb a; a ; repeat gnd i ] in
-            i+1, (if i = last then (-:) else (+:)) acc ((&:) a (repeat b (width a)))
-        ) (0,(repeat gnd (width a))) (bits_lsb b) in
-        r
-
-    (** equality *)
-    let (==:) a b = 
-        let eq = (~: (a &: (~: b))) &: (~: ((~: a) &: b)) in (* ~: (a ^: b) *)
-        reduce_bits vdd (&:) eq
-    
-    (** less than *)
-    let (<:) a b = 
-        let w = width a in
-        let a,b = concat [gnd;a], concat [gnd;b] in
-        let d = a -: b in
-        select d w w
-    
-    (** multiplexer *)
-    let mux s d = 
-        let mux2 sel a b = 
-            assert (width sel = 1);
-            let s = repeat sel (width a) in
-            (s &: a) |: ((~: s) &: b) 
-        in
-        let d' = List.hd (List.rev d) in
-        (* generate the 'n' input mux structure 'bottom-up'.
-         * it works from the lsb of the select signal.  Pairs
-         * from the data list are mux'd together and we recurse 
-         * until the select is complete.  Proper 'default' handling 
-         * is included with the '[a]' case in 'zip' *)
-        let rec build s d = 
-            match s with 
-            | [] -> List.hd d
-            | s::s' ->
-                let rec zip l = 
-                    match l with
-                    | [] -> []
-                    | [a] -> [mux2 s d' a] 
-                    (* | [a] -> [a] simpler *)
-                    | a::b::tl -> mux2 s b a :: zip tl
-                in
-                build s' (zip d)
-        in
-        build (bits_lsb s) d
-
-  let to_bstr _ = failwith "to_bstr"
-  let to_int _ = failwith "to_int"
-  let to_string _ = failwith "to_string"
-
-end
-
-module Tseitin = struct
-
-  let bfalse z = [ [ - z ] ]
-
-  let btrue z = [ [ z ] ]
-
-  let bnot z x = [ [x; z]; [- x; - z] ]
-  
-  let bwire z x = [ [ -z; x ]; [ z; -x ] ]
-
-  let bnor z x = 
-    let sum = List.fold_right (fun x a -> x :: a) x [z] in
-    List.fold_right (fun x a -> [- x; - z] :: a) x [sum]
-
-  let bor z x = 
-    let sum = List.fold_right (fun x a -> x :: a) x [- z] in
-    List.fold_right (fun x a -> [- x; z] :: a) x [sum]
-
-  let bnand z x = 
-    let sum = List.fold_right (fun x a -> - x :: a) x [- z] in
-    List.fold_right (fun x a -> [x; z] :: a) x [sum]
-
-  let band z x =  
-    let sum = List.fold_right (fun x a -> - x :: a) x [z] in
-    List.fold_right (fun x a -> [x; - z] :: a) x [sum]
-
-  let bxor z a b = 
-    [ [- z; - a; - b]; [- z; a; b]; [z; - a; b]; [z; a; - b] ]
-
-end
+module Tseitin = Sattools.Tseitin.Make(struct
+    type t = int
+    let (~:) a = - a
+end)
 
 type uid = int
 type terms = int list list
@@ -254,9 +108,12 @@ module Sat = struct
     let w = width s in
     List.mapi (fun i s -> name_bit s n (w-i-1)) s
 
+  let to_bstr _ = failwith "to_bstr"
+  let to_int _ = failwith "to_int"
+  let to_string _ = failwith "to_string"
 end
 
-module Comb : Comb.S with type t = unlabelled sat list = Comb.Make(Make(Sat))
+module Comb : Comb.S with type t = unlabelled sat list = Comb.Make(Transform.MakeCombGates(Sat))
 
 module M = Map.Make(struct type t = int let compare = compare end) 
 
