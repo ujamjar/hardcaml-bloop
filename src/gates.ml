@@ -280,7 +280,7 @@ module Comb = Make_comb(Basic_gates_opt)
 
 module Tseitin = struct
 
-  include Tseitin.Make(struct
+  include Sattools.Tseitin.Make(struct
       type t = int
       let (~:) a = - a
   end)

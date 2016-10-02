@@ -1,10 +1,11 @@
 # OASIS_START
-# DO NOT EDIT (digest: bcb1c622d0ed8084fb7a6bc9346f0cd9)
+# DO NOT EDIT (digest: e02b304204820899b0fb1066230f5e5e)
 Expr
 Pcn
 Gates
 Mig
 Bddx
+Cnf
 Sat
 Kmap
 Algebraic

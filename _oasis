@@ -16,7 +16,7 @@ Library HardCamlBloop
   Path:          src
   Findlibname:   hardcaml-bloop
   Pack:          true
-  Modules:       Expr, Pcn, Gates, Mig, Bddx, Sat, Kmap, Algebraic, Espresso
+  Modules:       Expr, Pcn, Gates, Mig, Bddx, Cnf, Sat, Kmap, Algebraic, Espresso
   BuildDepends:  hardcaml, sattools, bdd, uutf, gg, vg
   XMETARequires: hardcaml, sattools, bdd, uutf, gg, vg
 
