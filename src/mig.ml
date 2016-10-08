@@ -16,7 +16,7 @@ module Basic_gates = struct
   let (&.) a b = (M(uid(), a, b, f), NoCompl)
   let (|.) a b = (M(uid(), a, b, t), NoCompl)
 
-  let (~.) (m, c) = 
+  let (~.) ((m, c) : edge) = 
     match c with
     | NoCompl -> (m, Compl)
     | Compl -> (m, NoCompl)
