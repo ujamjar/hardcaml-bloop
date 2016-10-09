@@ -16,7 +16,7 @@ remove: [
 depends: [
   "ocamlfind"
   "base-bytes"
-  "camlp4"
+  "astring"
   "hardcaml"
   "sattools"
   "bdd"
