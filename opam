@@ -8,7 +8,9 @@ build: [
   ["ocaml" "pkg/pkg.ml" "build"]
 ]
 depends: [
-  "ocamlfind"
+  "ocamlfind" {build}
+  "ocamlbuild" {build}
+  "topkg" {build}
   "base-bytes"
   "astring"
   "hardcaml"
