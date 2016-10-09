@@ -5,13 +5,7 @@ homepage: "https://github.com/ujamjar/hardcaml-bloop"
 dev-repo: "https://github.com/ujamjar/hardcaml-bloop"
 bug-reports: "https://github.com/ujamjar/hardcaml-bloop/issues"
 build: [
-  [make "all"]
-]
-install: [
-  [make "install"]
-]
-remove: [
-  [make "uninstall"]
+  ["ocaml" "pkg/pkg.ml" "build"]
 ]
 depends: [
   "ocamlfind"
