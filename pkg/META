@@ -1,0 +1,8 @@
+version = "1.1"
+description = "Boolean logic tools for HardCaml"
+requires = "hardcaml sattools bdd uutf gg vg"
+archive(byte) = "HardCamlBloop.cma"
+archive(byte, plugin) = "HardCamlBloop.cma"
+archive(native) = "HardCamlBloop.cmxa"
+archive(native, plugin) = "HardCamlBloop.cmxs"
+exists_if = "HardCamlBloop.cma"
