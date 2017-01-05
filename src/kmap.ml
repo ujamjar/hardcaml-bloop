@@ -19,7 +19,7 @@ module Render = struct
 
   let string font p s i = 
     let text = Array.init (String.length s) 
-      (fun i -> Char.code (String.get s i)) |> Array.to_list |> utf8 
+      (fun i -> Uchar.of_int @@ Char.code (String.get s i)) |> Array.to_list |> utf8 
     in
     I.cut_glyphs ~text font [] i >> I.move p
 
