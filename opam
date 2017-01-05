@@ -13,7 +13,7 @@ depends: [
   "topkg" {build}
   "base-bytes"
   "astring"
-  "hardcaml" { >= "1.2.0" & "2.0.0" }
+  "hardcaml" { >= "1.2.0" & < "2.0.0" }
   "sattools"
   "bdd"
   "uchar"
