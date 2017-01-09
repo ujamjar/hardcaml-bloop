@@ -1,4 +1,4 @@
-version = "0.1"
+version = "%{version}%"
 description = "Boolean logic tools for HardCaml"
 requires = "hardcaml sattools bdd uutf gg vg"
 archive(byte) = "HardCamlBloop.cma"
