@@ -117,6 +117,7 @@ module Comb : Comb.S with type t = unlabelled sat list = Comb.Make(Transform.Mak
 
 module M = Map.Make(struct type t = int let compare = compare end) 
 
+(*
 let relabel s = 
   let mk_uid = let uid = ref 0 in (fun () -> incr uid; !uid) in
   let rec relabel map s = 
@@ -155,6 +156,51 @@ let relabel s =
     | E -> map, E
   in
   snd @@ relabel M.empty s
+*)    
+
+let relabel s = 
+  let mk_uid = let uid = ref 0 in (fun () -> incr uid; !uid) in
+  let rec relabel vmap map s = 
+    let open Sat in
+    let find map x = 
+      try if x < 0 then - (M.find (-x) map) else M.find x map
+      with _ -> failwith ("map: " ^ string_of_int x) in
+    let relabel_terms map uid' terms = 
+      let uid, map = 
+        if M.mem uid' map then 
+          find map uid', map
+        else
+          let uid = mk_uid () in
+          let map = M.add uid' uid map in
+          uid, map
+      in
+      map, uid, List.map (List.map (find map)) terms
+    in
+    let vadd uid vmap map s = M.add uid s vmap, map, s in
+    if s <> E && M.mem (Sat.get_uid s) vmap then 
+      vmap, map, M.find (Sat.get_uid s) vmap
+    else
+      match s with
+      | P (uid', terms) -> 
+        let map, uid, terms = relabel_terms map uid' terms in
+        vadd uid' vmap map (P(uid, terms))
+      | C (uid', terms, args) -> 
+        let vmap, map, args = List.fold_left 
+            (fun (vmap, map, args) x -> 
+               let vmap, map, x = relabel vmap map x in
+               vmap, map, x::args) 
+            (vmap, map, []) args
+        in
+        let map, uid, terms = relabel_terms map uid' terms in
+        vadd uid' vmap map (C(uid, terms, List.rev args))
+      | W(uid', names, terms, arg) ->
+        let vmap, map, arg = relabel vmap map !arg in
+        let map, uid, terms = relabel_terms map uid' !terms in
+        vadd uid' vmap map (W(uid, names, ref terms, ref arg))
+      | E -> vmap, map, E
+  in
+  let _,_,s = relabel M.empty M.empty s in
+  s
 
 let nterms s = 
   let rec count s = 
@@ -172,25 +218,44 @@ let nvars s = Sat.get_uid s
 
 type name_map = (string * int) list M.t
 
-let rec name_map map s = 
-  match s with
-  | P(_ ) -> map
-  | C(_, _, args) -> 
-    List.fold_left (fun map arg -> name_map map arg) map args
-  | W(uid, names, _, arg) ->
-    let map = if !names <> [] then M.add uid !names map else map in
-    name_map map !arg
-  | E -> map
+let rec name_map vmap map s = 
+  if s <> E && M.mem (Sat.get_uid s) vmap then vmap, map
+  else
+    let add vmap = M.add (Sat.get_uid s) 0 vmap in
+    match s with
+    | P(_ ) -> add vmap, map
+    | C(_, _, args) -> 
+      let vmap, map = 
+        List.fold_left (fun (vmap,map) arg -> name_map vmap map arg) (vmap,map) args
+      in
+      add vmap, map
+    | W(uid, names, _, arg) ->
+      let map = if !names <> [] then M.add uid !names map else map in
+      let vmap, map = name_map vmap map !arg in
+      add vmap, map
+    | E -> vmap, map
 
-let rec fold f a = function 
-  | P(_, terms) -> f a terms
-  | C(_, terms, args) -> 
-    let a = f a terms in
-    List.fold_left (fun a t -> fold f a t) a args
-  | W(_, _, terms, arg) -> 
-    let a = f a !terms in
-    fold f a !arg
-  | E -> a
+let name_map m s = 
+  snd @@ name_map M.empty m s
+
+let rec fold map f a s = 
+  if s <> E && M.mem (Sat.get_uid s) map then map, a
+  else
+    let add map = M.add (Sat.get_uid s) 0 map in
+    match s with
+    | P(_, terms) -> 
+      add map, f a terms
+    | C(_, terms, args) -> 
+      let a = f a terms in
+      let map, a = List.fold_left (fun (map, a) t -> fold map f a t) (map, a) args in
+      add map, a
+    | W(_, _, terms, arg) -> 
+      let a = f a !terms in
+      let map, a = fold map f a !arg in
+      add map, a
+    | E -> map, a
+
+let fold f a s = snd @@ fold M.empty f a s
 
 module T = HardCaml.Transform.MakePureCombTransform(Comb)
 
