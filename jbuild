@@ -1,0 +1,14 @@
+(jbuild_version 1)
+
+(alias
+ ((name tests)
+  (deps (test/pcn_taut.exe
+         test/pcn_compl.exe
+         test/sat_const.exe
+         test/sat_mul.exe
+         test/sat_ban.exe
+         test/sat_repair.exe
+         test/bdd_dynw.exe
+         test/bdd_adder.exe
+         test/bdd_repair.exe))))
+

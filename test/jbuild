@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(executables
+ ((names (pcn_taut pcn_compl sat_const 
+          sat_mul sat_ban sat_repair 
+          bdd_dynw bdd_adder bdd_repair))
+  (libraries (hardcaml-bloop sattools-minisat))))

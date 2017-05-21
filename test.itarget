@@ -1,9 +1,0 @@
-test/pcn_taut.native
-test/pcn_compl.native
-test/sat_const.native
-test/sat_mul.native
-test/sat_ban.native
-test/sat_repair.native
-test/bdd_dynw.native
-test/bdd_adder.native
-test/bdd_repair.native

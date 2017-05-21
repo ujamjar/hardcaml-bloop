@@ -1,6 +1,0 @@
-"src": include
-<src/*.ml{,i}>: for-pack(HardCamlBloop)
-
-"test": include
-
-true: package(sattools), package(hardcaml), package(bdd), package(uutf), package(gg), package(vg)

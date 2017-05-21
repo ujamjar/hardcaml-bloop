@@ -1,0 +1,7 @@
+(jbuild_version 1)
+
+(library
+ ((name HardCamlBloop)
+  (public_name hardcaml-bloop)
+  (libraries (hardcaml sattools bdd uutf gg vg))))
+

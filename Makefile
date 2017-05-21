@@ -1,13 +1,15 @@
-.PHONY: all build clean tag prepare publish
+.PHONY: all build test clean tag prepare publish
 
 all: build
 
 build:
-	cp pkg/META.in pkg/META
-	ocaml pkg/pkg.ml build
+	jbuilder build @install
+
+tests:
+	jbuilder build @tests
 
 clean:
-	ocaml pkg/pkg.ml clean
+	rm -fr _build
 	find . -name "*~" | xargs rm -f
 	rm -f *.bc *.ll
 
